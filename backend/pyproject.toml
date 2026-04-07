@@ -9,6 +9,12 @@ dependencies = [
     "numpy>=2.4.4",
     "pandas>=3.0.2",
     "pydantic>=2.12.5",
+    "pytest>=9.0.2",
     "scikit-learn>=1.8.0",
     "uvicorn>=0.43.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
 ]
