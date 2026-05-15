@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from app.pipeline.executor import run_pipeline
 from app.pipeline.schemas import Pipeline
 
+from app.pipeline.registry.node_registry import NODE_REGISTRY
+
 router = APIRouter()
 
 @router.post("/run_pipeline")
@@ -23,3 +25,10 @@ def execute_pipeline(pipeline: Pipeline):
             status_code=500,
             detail="Internal server error"
         )
+        
+@router.get("/nodes")
+def get_nodes():
+    node_data = {}
+    for node_type, node_info in NODE_REGISTRY.items():
+        node_data[node_type] = (node_info["metadata"])
+    return node_data
