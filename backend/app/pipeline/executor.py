@@ -1,12 +1,6 @@
 from app.pipeline.utils import topological_sort
 
-from app.pipeline.nodes import dataset_node, preprocess_node, model_node
-
-NODE_REGISTRY = {
-    'dataset': dataset_node.run,
-    'preprocess': preprocess_node.run,
-    'model': model_node.run,
-}
+from app.pipeline.registry.node_registry import NODE_REGISTRY
 
 def run_pipeline(pipeline):
     order = topological_sort(pipeline)
@@ -26,6 +20,9 @@ def run_pipeline(pipeline):
         for parent in parents[node_id]:
             input_data.update(results[parent])
             
-        output = NODE_REGISTRY[node_type](input_data)
+        config = node.get('config', {})
+            
+        executor = NODE_REGISTRY[node_type]['executor']
+        output = executor(input_data, config)
         results[node_id] = output
     return results
