@@ -9,4 +9,10 @@ def run(input_data, config):
     if algorithm not in MODEL_REGISTRY:
         raise ValueError(f"Unknown algorithm: {algorithm}")
     
-    return MODEL_REGISTRY[algorithm](input_data, config)
+    required_inputs = ["X_train", "X_test", "y_train", "y_test"]
+    for key in required_inputs:
+        if key not in input_data:
+            raise ValueError(f"Missing required input: {key}")
+    
+    model_executor = MODEL_REGISTRY[algorithm]
+    return model_executor(input_data, config)
