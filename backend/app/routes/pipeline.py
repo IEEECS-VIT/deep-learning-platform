@@ -20,10 +20,10 @@ def execute_pipeline(pipeline: Pipeline):
             detail=str(e)
         )
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail="Internal server error"
+            detail=str(e)
         )
         
 @router.get("/nodes")

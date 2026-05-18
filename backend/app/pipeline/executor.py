@@ -25,4 +25,8 @@ def run_pipeline(pipeline):
         executor = NODE_REGISTRY[node_type]['executor']
         output = executor(input_data, config)
         results[node_id] = output
-    return results
+        
+    final_node = order[-1]
+    return {
+        final_node: results[final_node]
+    }
