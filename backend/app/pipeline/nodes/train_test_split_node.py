@@ -13,5 +13,6 @@ def run(input_data, config):
         "X_train": X_train,
         "X_test": X_test,
         "y_train": y_train,
-        "y_test": y_test
+        "y_test": y_test,
+        "task_type": input_data["task_type"]
     }

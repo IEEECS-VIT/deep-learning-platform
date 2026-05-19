@@ -1,9 +1,26 @@
-from sklearn.datasets import load_iris, load_wine, load_breast_cancer
+from sklearn.datasets import load_iris, load_wine, load_breast_cancer, fetch_california_housing, load_diabetes
 
 DATASET_REGISTRY = {
-    "iris": load_iris,
-    "wine": load_wine,
-    "breast_cancer": load_breast_cancer,
+    "iris": {
+        "loader": load_iris,
+        "task_type": "classification"
+    },
+    "wine": {
+        "loader": load_wine,
+        "task_type": "classification"
+    },
+    "breast_cancer": {
+        "loader": load_breast_cancer,
+        "task_type": "classification"
+    },
+    "california_housing": {
+        "loader": fetch_california_housing,
+        "task_type": "regression"
+    },
+    "diabetes": {
+        "loader": load_diabetes,
+        "task_type": "regression"
+    }
 }
 
 def run(input_data, config):
@@ -12,10 +29,13 @@ def run(input_data, config):
     if dataset_name not in DATASET_REGISTRY:
         raise ValueError(f"Unknown dataset '{dataset_name}'")
     
-    dataset_loader = DATASET_REGISTRY[dataset_name]
+    dataset_info = DATASET_REGISTRY[dataset_name]
+    dataset_loader = dataset_info["loader"]
+    task_type = dataset_info["task_type"]
     dataset = dataset_loader()
     
     return {
         "X": dataset.data.tolist(),
         "y": dataset.target.tolist(),
+        "task_type": task_type
     }

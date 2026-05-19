@@ -10,5 +10,6 @@ def run(input_data, config):
         "X_train": scaled_X_train,
         "X_test": scaled_X_test,
         "y_train": input_data["y_train"],
-        "y_test": input_data["y_test"]
+        "y_test": input_data["y_test"],
+        "task_type": input_data["task_type"]
     }
