@@ -11,7 +11,6 @@ def execute_pipeline(pipeline: Pipeline):
     try:
         results = run_pipeline(pipeline.model_dump())
         return{
-            "status": "success",
             "results": results
         }
     except ValueError as e:
@@ -23,7 +22,7 @@ def execute_pipeline(pipeline: Pipeline):
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail="Pipeline execution failed"
         )
         
 @router.get("/nodes")

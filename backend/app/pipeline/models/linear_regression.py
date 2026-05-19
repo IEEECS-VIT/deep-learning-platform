@@ -16,7 +16,7 @@ def train(input_data, config):
     r2 = r2_score(y_test, predictions)
     
     return {
-        "model_name": "Linear Regression",
+        "model_name": "linear_regression",
         "predictions": predictions.tolist(),
         "metrics": {
             "mse": float(mse),

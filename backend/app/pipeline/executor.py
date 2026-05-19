@@ -3,6 +3,11 @@ from app.pipeline.utils import topological_sort
 from app.pipeline.registry.node_registry import NODE_REGISTRY
 
 def run_pipeline(pipeline):
+    if "nodes" not in pipeline:
+        raise ValueError("Pipeline missing nodes")
+
+    if "edges" not in pipeline:
+        raise ValueError("Pipeline missing edges")
     order = topological_sort(pipeline)
     node_map = {node['id']: node for node in pipeline["nodes"]}
     results = {}
@@ -28,5 +33,7 @@ def run_pipeline(pipeline):
         
     final_node = order[-1]
     return {
-        final_node: results[final_node]
+        "status": "success",
+        "final_node": final_node,
+        "output": results[final_node]
     }
