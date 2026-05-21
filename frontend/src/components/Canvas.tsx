@@ -12,7 +12,7 @@ const nodeTypes = {
   dataset: DatasetNode,
   preprocess: PreprocessNode,
   model: ModelNode,
-  trainTestSplit: TrainTestSplitNode,
+  train_test_split: TrainTestSplitNode,
 };
 
 export default function Canvas() {

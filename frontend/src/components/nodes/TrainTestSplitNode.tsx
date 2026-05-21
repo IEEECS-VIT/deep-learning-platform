@@ -2,6 +2,8 @@
 import { Handle, Position } from "@xyflow/react";
 
 export default function TrainTestSplitNode({ data }: { data: { label: string; testSize?: string } }) {
+  const meta = data.testSize ? `Split data (test: ${data.testSize})` : "Split data into train/test sets";
+
   return (
     <div style={{ width: 180, borderRadius: 12, border: "1px solid rgba(99,102,241,0.3)", background: "#0f1333", padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -10,10 +12,7 @@ export default function TrainTestSplitNode({ data }: { data: { label: string; te
         </div>
         <span style={{ fontSize: 13, fontWeight: 600, color: "#c7d2fe" }}>Train-Test Split</span>
       </div>
-      <p style={{ fontSize: 11, color: "rgba(129,140,248,0.6)", margin: 0 }}>Split data into train and test sets</p>
-      {data.testSize && (
-        <p style={{ fontSize: 11, color: "#818cf8", margin: "6px 0 0", background: "rgba(99,102,241,0.1)", borderRadius: 6, padding: "3px 8px" }}>Test Size: {data.testSize}</p>
-      )}
+      <p style={{ fontSize: 11, color: "rgba(129,140,248,0.6)", margin: 0 }}>{meta}</p>
       <Handle type="target" position={Position.Left} style={{ background: "#6366f1", width: 10, height: 10, border: "2px solid #0f1333" }} />
       <Handle type="source" position={Position.Right} style={{ background: "#6366f1", width: 10, height: 10, border: "2px solid #0f1333" }} />
     </div>

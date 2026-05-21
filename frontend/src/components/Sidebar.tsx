@@ -6,7 +6,7 @@ const categories = [
     label: "Data",
     nodes: [
         { type: "dataset", label: "Dataset", desc: "Load a dataset", color: "#7c3aed", bg: "rgba(124,58,237,0.12)", border: "rgba(124,58,237,0.25)", icon: <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/> },
-        { type: "trainTestSplit", label: "Train-Test Split", desc: "Split data into train and test sets", color: "#6366f1", bg: "rgba(99,102,241,0.12)", border: "rgba(99,102,241,0.25)", icon: <><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></> },
+        { type: "train_test_split", label: "Train-Test Split", desc: "Split data into train and test sets", color: "#6366f1", bg: "rgba(99,102,241,0.12)", border: "rgba(99,102,241,0.25)", icon: <><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></> },
     ],
    },
   {
