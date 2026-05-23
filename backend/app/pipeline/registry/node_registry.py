@@ -9,11 +9,11 @@ NODE_REGISTRY = {
             "inputs": [],
             "outputs": ["X", "y"],
             "config_schema": {
-                "dataset": "string",
-                "options": [
-                    "iris", "wine", "breast_cancer", "california_housing", "diabetes"
-                ],
-                "default": "iris"
+                "dataset": {
+                    "type": "string",
+                    "options": ["iris", "wine", "breast_cancer", "california_housing", "diabetes"],
+                    "default": "iris"
+                }
             }
         }
     },
