@@ -1,6 +1,6 @@
 "use client";
 import { useCallback } from "react";
-import { ReactFlow, Background, Controls, MiniMap, BackgroundVariant } from "@xyflow/react";
+import { ReactFlow, Background, Controls, MiniMap, BackgroundVariant, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { usePipelineStore } from "@/store/pipelineStore";
 import DatasetNode from "./nodes/DatasetNode";
@@ -16,7 +16,7 @@ const nodeTypes = {
 };
 
 export default function Canvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = usePipelineStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, setSelectedNode } = usePipelineStore();
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -29,19 +29,23 @@ export default function Canvas() {
     if (!type) return;
     const bounds = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const position = { x: e.clientX - bounds.left - 80, y: e.clientY - bounds.top - 40 };
-    addNode({ id: `${type}-${Date.now()}`, type, position, data: { label: type } });
+    addNode(type, position);
   }, [addNode]);
 
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    setSelectedNode(node.id);
+  }, [setSelectedNode]);
+
   return (
-    <div style={{ width: "100%", height: "100%" }} onDragOver={onDragOver} onDrop={onDrop}>
+    <div className="w-full h-full" onDragOver={onDragOver} onDrop={onDrop}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
-        
         minZoom={0.3}
         maxZoom={2}
         style={{ background: "#0d0d0f" }}
