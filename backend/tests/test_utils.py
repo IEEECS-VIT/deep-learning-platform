@@ -1,4 +1,4 @@
-from app.pipeline.utils import build_graph, topological_sort
+from app.pipeline.generators import build_graph, topological_sort
 import pytest
 
 

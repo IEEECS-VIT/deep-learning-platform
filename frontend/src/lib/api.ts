@@ -28,7 +28,8 @@ export async function runPipeline(payload: PipelinePayload) {
     throw new Error(error.detail || "Pipeline execution failed");
   }
 
-  return response.json();
+  const data = await response.json();
+  return data.results ?? data;
 }
 
 export async function getNodes() {
