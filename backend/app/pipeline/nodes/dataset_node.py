@@ -37,5 +37,6 @@ def run(input_data, config):
     return {
         "X": dataset.data.tolist(),
         "y": dataset.target.tolist(),
+        "dataset_name": dataset_name,
         "task_type": task_type
     }

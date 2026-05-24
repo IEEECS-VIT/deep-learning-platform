@@ -5,18 +5,16 @@ import Sidebar from "@/components/Sidebar";
 import { usePipelineStore } from "@/store/pipelineStore";
 import { runPipeline, getNodes } from "@/lib/api";
 import ConfigPanel from "@/components/ConfigPanel";
+import OutputPanel from "@/components/output/OutputPanel";
+import { useOutputStore } from "@/store/outputStore";
 
 export default function Home() {
   const { nodes, edges } = usePipelineStore();
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [nodeMetadata, setNodeMetadata] = useState<Record<string, unknown>>({});
+  const { loading, startExecution, setExecutionResult, setExecutionError } = useOutputStore();
 
   const handleRun = async () => {
-    setRunning(true);
-    setError(null);
-    setResult(null);
+    startExecution();
     try {
       const payload = {
         nodes: nodes.map((n) => ({
@@ -31,11 +29,9 @@ export default function Home() {
         })),
       };
       const res = await runPipeline(payload);
-      setResult(res.results);
+      setExecutionResult(res);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setRunning(false);
+      setExecutionError(e instanceof Error ? e.message : "Something went wrong");
     }
   };
 
@@ -80,9 +76,9 @@ export default function Home() {
           </button>
           <button
             onClick={handleRun}
-            disabled={running}
+            disabled={loading}
             className={`h-8.5 px-4.5 rounded-lg border-0 text-white text-[13px] font-semibold flex items-center gap-1.75 ${
-              running
+              loading
                 ? "bg-[#5b21b6] cursor-not-allowed opacity-80"
                 : "bg-[#7c3aed] cursor-pointer"
             }`}
@@ -90,7 +86,7 @@ export default function Home() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
-            {running ? "Running..." : "Run Pipeline"}
+            {loading ? "Running..." : "Run Pipeline"}
           </button>
         </div>
       </div>
@@ -166,30 +162,7 @@ export default function Home() {
             <Canvas />
           </div>
 
-          {/* Output panel — only shows after run */}
-          {(result || error) && (
-            <div className="h-50 bg-[#111114] border-t border-white/[0.07] px-5 py-3.5 overflow-y-auto shrink-0">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[13px] font-semibold text-white">Output</span>
-                {result && (
-                  <span className="text-[11px] bg-[rgba(16,185,129,0.15)] text-[#34d399] border border-[rgba(16,185,129,0.2)] rounded-[20px] px-2.5 py-0.5">
-                    Success
-                  </span>
-                )}
-                {error && (
-                  <span className="text-[11px] bg-[rgba(239,68,68,0.15)] text-[#f87171] border border-[rgba(239,68,68,0.2)] rounded-[20px] px-2.5 py-0.5">
-                    Error
-                  </span>
-                )}
-              </div>
-              {error && <p className="text-[#f87171] text-[12px] m-0">{error}</p>}
-              {result && (
-                <pre className="text-[#a3e635] text-[11px] m-0 whitespace-pre-wrap break-all">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              )}
-            </div>
-          )}
+          <OutputPanel />
         </div>
         <ConfigPanel nodeMetadata={nodeMetadata}/>
       </div>

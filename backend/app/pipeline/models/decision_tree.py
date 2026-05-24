@@ -17,7 +17,13 @@ def train(input_data, config):
     return {
         "model_name": "decision_tree",
         "predictions": predictions.tolist(),
+        "predictions_preview": predictions[:10].tolist(),
         "metrics": {
             "accuracy": float(accuracy)
+        },
+        "config_used": config,
+        "run_summary": {
+            "model": "decision_tree",
+            "task_type": "classification"
         }
     }

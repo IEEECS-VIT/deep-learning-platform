@@ -1,8 +1,10 @@
+import time
 from app.pipeline.utils import topological_sort
-
 from app.pipeline.registry.node_registry import NODE_REGISTRY
+from app.pipeline.generators.code_generator import generate_pipeline_code
 
 def run_pipeline(pipeline):
+    start_time = time.time()
     if "nodes" not in pipeline:
         raise ValueError("Pipeline missing nodes")
 
@@ -32,8 +34,16 @@ def run_pipeline(pipeline):
         results[node_id] = output
         
     final_node = order[-1]
+    execution_time = round(time.time() - start_time, 4)
+    generated_code = generate_pipeline_code(pipeline)
     return {
         "status": "success",
+        "execution_time": execution_time,
         "final_node": final_node,
-        "output": results[final_node]
+        "pipeline_summary": {
+            "total_nodes": len(pipeline["nodes"]),
+            "total_edges": len(pipeline["edges"]),
+        },
+        "output": results[final_node],
+        "generated_code": generated_code
     }

@@ -18,8 +18,14 @@ def train(input_data, config):
     return {
         "model_name": "linear_regression",
         "predictions": predictions.tolist(),
+        "predictions_preview": predictions[:10].tolist(),
         "metrics": {
             "mse": float(mse),
             "r2_score": float(r2)
+        },
+        "config_used": config,
+        "run_summary": {
+            "model": "linear_regression",
+            "task_type": "regression"
         }
     }
