@@ -9,7 +9,7 @@ import OutputPanel from "@/components/output/OutputPanel";
 import { useOutputStore } from "@/store/outputStore";
 
 export default function Home() {
-  const { nodes, edges } = usePipelineStore();
+  const { nodes, edges, undo, redo, past, future } = usePipelineStore();
   const [nodeMetadata, setNodeMetadata] = useState<Record<string, unknown>>({});
   const { loading, startExecution, setExecutionResult, setExecutionError } = useOutputStore();
 
@@ -38,14 +38,10 @@ export default function Home() {
   useEffect(() => {
     const fetchNodeMetadata = async () => {
       try {
-        const metadata =
-          await getNodes();
+        const metadata = await getNodes();
         setNodeMetadata(metadata);
       } catch (error) {
-        console.error(
-          "Failed to fetch metadata:",
-          error
-        );
+        console.error("Failed to fetch metadata:", error);
       }
     };
     fetchNodeMetadata();
@@ -66,6 +62,33 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Undo */}
+          <button
+            onClick={undo}
+            disabled={past.length === 0}
+            title="Undo"
+            className="h-8 w-8 rounded-md border border-white/10 bg-transparent flex items-center justify-center disabled:opacity-30 hover:bg-white/5 cursor-pointer text-white/60"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14L4 9l5-5"/>
+              <path d="M4 9h10a7 7 0 010 14h-1"/>
+            </svg>
+          </button>
+
+          {/* Redo */}
+          <button
+            onClick={redo}
+            disabled={future.length === 0}
+            title="Redo"
+            className="h-8 w-8 rounded-md border border-white/10 bg-transparent flex items-center justify-center disabled:opacity-30 hover:bg-white/5 cursor-pointer text-white/60"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 14l5-5-5-5"/>
+              <path d="M20 9H10a7 7 0 000 14h1"/>
+            </svg>
+          </button>
+
+          {/* Save */}
           <button className="h-8 px-3.5 rounded-md border border-white/10 bg-transparent text-white/60 cursor-pointer text-[12px] flex items-center gap-1.5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
@@ -74,6 +97,8 @@ export default function Home() {
             </svg>
             Save
           </button>
+
+          {/* Run Pipeline */}
           <button
             onClick={handleRun}
             disabled={loading}
@@ -109,9 +134,7 @@ export default function Home() {
             },
             {
               label: "Workflows",
-              svg: (
-                <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-              ),
+              svg: <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />,
             },
             {
               label: "Runs",
@@ -138,7 +161,7 @@ export default function Home() {
           ].map((item, i) => (
             <button
               key={item.label}
-              className={`w-13 py-2 rounded-lg border-0 flex flex-col items-center gap-1 ${
+              className={`w-13 py-2 rounded-lg border-0 flex flex-col items-center gap-1 cursor-pointer ${
                 i === 0
                   ? "bg-[rgba(124,58,237,0.15)] text-[#a78bfa]"
                   : "bg-transparent text-white/35"
@@ -157,14 +180,13 @@ export default function Home() {
 
         {/* Main canvas + output */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Canvas */}
           <div className="flex-1 relative">
             <Canvas />
           </div>
-
           <OutputPanel />
         </div>
-        <ConfigPanel nodeMetadata={nodeMetadata}/>
+
+        <ConfigPanel nodeMetadata={nodeMetadata} />
       </div>
     </div>
   );
