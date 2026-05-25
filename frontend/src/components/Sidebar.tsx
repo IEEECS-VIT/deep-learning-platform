@@ -41,12 +41,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="w-[260px] bg-[#111114] border-r border-white/[0.06] flex flex-col shrink-0">
-      <div className="px-4 pt-4 pb-3 border-b border-white/[0.06]">
-        <p className="m-0 text-[13px] font-semibold text-white">Available Nodes</p>
-        <p className="mt-[3px] m-0 text-[11px] text-white/35">Drag nodes to the canvas</p>
-      </div>
-
+    <div className="w-full h-full flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto p-[10px]">
         {categories.map((cat) => (
           <div key={cat.label} className="mb-2">
@@ -55,14 +50,11 @@ export default function Sidebar() {
               className="w-full flex items-center justify-between px-2 py-[6px] bg-transparent border-0 cursor-pointer text-white/40 text-[11px] font-semibold tracking-[0.05em]"
             >
               <span>{cat.label.toUpperCase()}</span>
-              <svg
-                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                style={{ transform: collapsed[cat.label] ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-              >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ transform: collapsed[cat.label] ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
-
             {!collapsed[cat.label] && (
               <div className="flex flex-col gap-[6px] mt-1">
                 {cat.nodes.map((node) => (
@@ -71,20 +63,18 @@ export default function Sidebar() {
                     draggable
                     onDragStart={(e) => onDragStart(e, node.type)}
                     onDoubleClick={() => onDoubleClick(node.type)}
-                    className="flex items-center gap-[10px] px-3 py-[10px] rounded-[10px] border cursor-grab"
+                    className="flex items-center gap-[10px] px-3 py-[10px] rounded-[10px] border cursor-grab overflow-hidden"
                     style={{ borderColor: node.border, background: node.bg }}
                   >
-                    <div
-                      className="w-8 h-8 rounded-[8px] flex items-center justify-center shrink-0"
-                      style={{ background: `${node.color}22` }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={node.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <div className="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                      style={{ background: `${node.color}22` }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={node.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         {node.icon}
                       </svg>
                     </div>
-                    <div>
-                      <p className="m-0 text-[12px] font-semibold text-white">{node.label}</p>
-                      <p className="mt-[2px] m-0 text-[11px] text-white/40">{node.desc}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 text-[12px] font-semibold text-white truncate">{node.label}</p>
+                      <p className="mt-[2px] m-0 text-[11px] text-white/40 truncate">{node.desc}</p>
                     </div>
                   </div>
                 ))}

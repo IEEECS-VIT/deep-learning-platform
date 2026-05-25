@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "@xyflow/react";
-import type { Node, Edge, Connection, NodeChange, EdgeChange } from "@xyflow/react";
+import type {
+  Node,
+  Edge,
+  Connection,
+  NodeChange,
+  EdgeChange,
+} from "@xyflow/react";
 
 interface Snapshot {
   nodes: Node[];
@@ -11,6 +17,7 @@ interface PipelineStore {
   nodes: Node[];
   edges: Edge[];
   selectedNodeId: string | null;
+  selectedEdgeId: string | null;
   nodeTypeCounts: Record<string, number>;
   past: Snapshot[];
   future: Snapshot[];
@@ -19,10 +26,14 @@ interface PipelineStore {
   onConnect: (connection: Connection) => void;
   addNode: (type: string, position: { x: number; y: number }) => void;
   setSelectedNode: (nodeId: string | null) => void;
+  setSelectedEdge: (edgeId: string | null) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   deleteNode: (nodeId: string) => void;
   deleteEdge: (edgeId: string) => void;
-  onNodeDragStop: (node: Node, previousPosition: { x: number; y: number }) => void;
+  onNodeDragStop: (
+    node: Node,
+    previousPosition: { x: number; y: number },
+  ) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -31,17 +42,16 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedEdgeId: null,
   nodeTypeCounts: {},
   past: [],
   future: [],
 
-  
   onNodesChange: (changes) =>
     set((state) => ({
       nodes: applyNodeChanges(changes, state.nodes),
     })),
 
-  
   onEdgesChange: (changes) =>
     set((state) => ({
       edges: applyEdgeChanges(changes, state.edges),
@@ -65,12 +75,19 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
       return {
         past: [...state.past, { nodes: state.nodes, edges: state.edges }],
         future: [],
-        nodes: [...state.nodes, { id: nextId, type, position, data: { label: displayLabel } }],
+        nodes: [
+          ...state.nodes,
+          { id: nextId, type, position, data: { label: displayLabel } },
+        ],
         nodeTypeCounts: { ...state.nodeTypeCounts, [type]: nextCount },
       };
     }),
 
-  setSelectedNode: (nodeId) => set(() => ({ selectedNodeId: nodeId })),
+  setSelectedNode: (nodeId) =>
+    set(() => ({ selectedNodeId: nodeId, selectedEdgeId: null })),
+
+  setSelectedEdge: (edgeId) =>
+    set(() => ({ selectedEdgeId: edgeId, selectedNodeId: null })),
 
   updateNodeConfig: (nodeId, config) =>
     set((state) => ({
@@ -81,12 +98,15 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
               data: {
                 ...node.data,
                 config: {
-                  ...(((node.data as Record<string, unknown>).config as Record<string, unknown>) ?? {}),
+                  ...(((node.data as Record<string, unknown>).config as Record<
+                    string,
+                    unknown
+                  >) ?? {}),
                   ...config,
                 },
               },
             }
-          : node
+          : node,
       ),
     })),
 
@@ -95,8 +115,12 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
       past: [...state.past, { nodes: state.nodes, edges: state.edges }],
       future: [],
       nodes: state.nodes.filter((n) => n.id !== nodeId),
-      edges: state.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
-      selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+      edges: state.edges.filter(
+        (e) => e.source !== nodeId && e.target !== nodeId,
+      ),
+      selectedNodeId:
+        state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+      selectedEdgeId: null,
     })),
 
   deleteEdge: (edgeId) =>
@@ -104,16 +128,17 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
       past: [...state.past, { nodes: state.nodes, edges: state.edges }],
       future: [],
       edges: state.edges.filter((e) => e.id !== edgeId),
+      selectedEdgeId:
+        state.selectedEdgeId === edgeId ? null : state.selectedEdgeId,
     })),
 
-  
   onNodeDragStop: (node, previousPosition) =>
     set((state) => ({
       past: [
         ...state.past,
         {
           nodes: state.nodes.map((n) =>
-            n.id === node.id ? { ...n, position: previousPosition } : n
+            n.id === node.id ? { ...n, position: previousPosition } : n,
           ),
           edges: state.edges,
         },
