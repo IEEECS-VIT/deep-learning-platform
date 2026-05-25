@@ -159,10 +159,29 @@ export default function Home() {
     }
   }, [selectedNodeId]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (selectedNodeId) deleteNode(selectedNodeId);
     else if (selectedEdgeId) deleteEdge(selectedEdgeId);
-  };
+  }, [deleteEdge, deleteNode, selectedEdgeId, selectedNodeId]);
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return tag === "input" || tag === "textarea" || target.isContentEditable;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) return;
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (!selectedNodeId && !selectedEdgeId) return;
+      e.preventDefault();
+      handleDelete();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleDelete, selectedEdgeId, selectedNodeId]);
 
   const buildSavedRun = (result: any) => {
     const output = result.output;
