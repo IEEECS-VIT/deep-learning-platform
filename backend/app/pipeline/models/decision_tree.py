@@ -7,7 +7,11 @@ def train(input_data, config):
     y_train = input_data["y_train"]
     y_test = input_data["y_test"]
     
-    model = DecisionTreeClassifier(random_state=42)
+    model = DecisionTreeClassifier(
+        criterion=config.get("criterion", "gini"),
+        max_depth=config.get("max_depth", 5),
+        random_state=42
+    )
     model.fit(X_train, y_train)
     
     predictions = model.predict(X_test)

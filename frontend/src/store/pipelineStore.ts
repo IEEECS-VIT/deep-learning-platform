@@ -27,7 +27,11 @@ interface PipelineStore {
   addNode: (type: string, position: { x: number; y: number }) => void;
   setSelectedNode: (nodeId: string | null) => void;
   setSelectedEdge: (edgeId: string | null) => void;
-  updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
+  updateNodeConfig: (
+    nodeId: string,
+    config: Record<string, unknown>,
+    options?: { replace?: boolean },
+  ) => void;
   deleteNode: (nodeId: string) => void;
   deleteEdge: (edgeId: string) => void;
   onNodeDragStop: (
@@ -89,7 +93,7 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
   setSelectedEdge: (edgeId) =>
     set(() => ({ selectedEdgeId: edgeId, selectedNodeId: null })),
 
-  updateNodeConfig: (nodeId, config) =>
+  updateNodeConfig: (nodeId, config, options) =>
     set((state) => ({
       nodes: state.nodes.map((node) =>
         node.id === nodeId
@@ -97,13 +101,15 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
               ...node,
               data: {
                 ...node.data,
-                config: {
-                  ...(((node.data as Record<string, unknown>).config as Record<
-                    string,
-                    unknown
-                  >) ?? {}),
-                  ...config,
-                },
+                config: options?.replace
+                  ? config
+                  : {
+                      ...(((node.data as Record<string, unknown>).config as Record<
+                        string,
+                        unknown
+                      >) ?? {}),
+                      ...config,
+                    },
               },
             }
           : node,

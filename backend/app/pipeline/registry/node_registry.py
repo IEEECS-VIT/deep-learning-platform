@@ -46,9 +46,10 @@ NODE_REGISTRY = {
             "inputs": ["X_train", "X_test", "y_train", "y_test"],
             "outputs": ["X_train", "X_test", "y_train", "y_test"],
             "config_schema": {
-                "scale_factor": {
-                    "type": "integer",
-                    "default": 1
+                "scaler_type": {
+                    "type": "string",
+                    "options": ["standard", "minmax", "robust"],
+                    "default": "standard"
                 }
             }
         }
@@ -65,10 +66,33 @@ NODE_REGISTRY = {
                 "algorithm": {
                     "type": "string",
                     "options": ["linear_regression", "logistic_regression", "decision_tree", "random_forest"],
+                    "default": "logistic_regression"
                 },
                 "fit_intercept": {
                     "type": "boolean",
                     "default": True
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "default": 5
+                },
+                "n_estimators": {
+                    "type": "integer",
+                    "default": 100
+                },
+                "criterion": {
+                    "type": "string",
+                    "options": ["gini", "entropy"],
+                    "default": "gini"
+                },
+                "C": {
+                    "type": "float",
+                    "default": 1.0
+                },
+                "solver": {
+                    "type": "string",
+                    "options": ["lbfgs", "liblinear"],
+                    "default": "lbfgs"
                 }
             }
         }

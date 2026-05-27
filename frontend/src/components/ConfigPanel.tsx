@@ -1,5 +1,6 @@
 "use client";
 import type { Node } from "@xyflow/react";
+import { useEffect } from "react";
 import { usePipelineStore } from "../store/pipelineStore";
 
 interface ConfigPanelProps {
@@ -14,6 +15,48 @@ type ConfigFieldSchema = {
 
 type ConfigSchemaMap = Record<string, ConfigFieldSchema>;
 
+const MODEL_FIELD_MAP: Record<string, string[]> = {
+  linear_regression: ["fit_intercept"],
+  logistic_regression: ["C", "solver"],
+  decision_tree: ["criterion", "max_depth"],
+  random_forest: ["n_estimators", "max_depth"],
+};
+
+const MODEL_DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
+  linear_regression: { fit_intercept: true },
+  logistic_regression: { C: 1.0, solver: "lbfgs" },
+  decision_tree: { criterion: "gini", max_depth: 5 },
+  random_forest: { n_estimators: 100, max_depth: 5 },
+};
+
+const buildModelConfig = (
+  algorithm: string,
+  existingConfig: Record<string, unknown>,
+  options?: { useExistingValues?: boolean },
+) => {
+  const allowedFields = MODEL_FIELD_MAP[algorithm] ?? [];
+  const defaults = MODEL_DEFAULT_CONFIGS[algorithm] ?? {};
+  const nextConfig: Record<string, unknown> = { algorithm };
+
+  allowedFields.forEach((field) => {
+    if (options?.useExistingValues && field in existingConfig) {
+      nextConfig[field] = existingConfig[field];
+      return;
+    }
+    if (field in defaults) {
+      nextConfig[field] = defaults[field];
+    }
+  });
+
+  return nextConfig;
+};
+
+const areConfigsEqual = (left: Record<string, unknown>, right: Record<string, unknown>) => {
+  const leftKeys = Object.keys(left);
+  if (leftKeys.length !== Object.keys(right).length) return false;
+  return leftKeys.every((key) => Object.is(left[key], right[key]));
+};
+
 export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
   const { nodes, selectedNodeId, updateNodeConfig } = usePipelineStore();
   const selectedNode = nodes.find((node: Node) => node.id === selectedNodeId);
@@ -23,17 +66,49 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
   const configSchema = (selectedNodeMetadata as { config_schema?: ConfigSchemaMap } | null)?.config_schema;
   const nodeConfig =
     ((selectedNode?.data as { config?: Record<string, unknown> } | undefined)?.config as Record<string, unknown>) ?? {};
+  const isModelNode = selectedNode?.type === "model";
+  const modelAlgorithm = isModelNode
+    ? (nodeConfig.algorithm as string | undefined) ??
+      ((configSchema?.algorithm as ConfigFieldSchema | undefined)?.default as string | undefined)
+    : undefined;
+  const filteredConfigEntries = configSchema
+    ? Object.entries(configSchema).filter(([key]) => {
+        if (!isModelNode) return true;
+        if (key === "algorithm") return true;
+        const allowedFields = modelAlgorithm ? MODEL_FIELD_MAP[modelAlgorithm] ?? [] : [];
+        return allowedFields.includes(key);
+      })
+    : [];
+  const orderedConfigEntries = isModelNode
+    ? [...filteredConfigEntries].sort(([leftKey], [rightKey]) => {
+        if (leftKey === "algorithm") return -1;
+        if (rightKey === "algorithm") return 1;
+        return 0;
+      })
+    : filteredConfigEntries;
   const resolvedConfig = configSchema
     ? Object.fromEntries(
-        Object.entries(configSchema).map(([key, field]) => {
+        orderedConfigEntries.map(([key, field]) => {
           const typedField = field as ConfigFieldSchema;
           return [key, nodeConfig[key] ?? typedField.default];
         })
       )
     : nodeConfig;
 
+  useEffect(() => {
+    if (!selectedNode || !isModelNode || !modelAlgorithm) return;
+    const nextConfig = buildModelConfig(modelAlgorithm, nodeConfig, { useExistingValues: true });
+    if (!areConfigsEqual(nextConfig, nodeConfig)) {
+      updateNodeConfig(selectedNode.id, nextConfig, { replace: true });
+    }
+  }, [selectedNode, isModelNode, modelAlgorithm, nodeConfig, updateNodeConfig]);
+
   const handleConfigChange = (key: string, value: unknown) => {
     if (!selectedNode) return;
+    if (isModelNode && key === "algorithm" && typeof value === "string") {
+      updateNodeConfig(selectedNode.id, buildModelConfig(value, {}, { useExistingValues: false }), { replace: true });
+      return;
+    }
     updateNodeConfig(selectedNode.id, { [key]: value });
   };
 
@@ -58,7 +133,7 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
           </div>
           <div className="mt-6 space-y-4">
             <p className="text-xs text-white/40">Configuration Fields</p>
-            {configSchema && Object.entries(configSchema).map(([key, field]) => {
+            {configSchema && orderedConfigEntries.map(([key, field]) => {
               const typedField = field as ConfigFieldSchema;
               const resolvedValue = nodeConfig[key] ?? typedField.default;
               const fieldType = typedField.type ?? "string";
