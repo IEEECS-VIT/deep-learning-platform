@@ -1,6 +1,7 @@
 import time
 from app.pipeline.utils import topological_sort
 from app.pipeline.validator import validate_pipeline
+from app.pipeline.error_handler import PipelineError
 from app.pipeline.registry.node_registry import NODE_REGISTRY
 from app.pipeline.generators.code_generator import generate_pipeline_code
 from app.pipeline.tracker import create_execution_record, mark_execution_success, mark_execution_failed
@@ -39,7 +40,7 @@ def run_pipeline(pipeline):
                 round(time.time() - node_start_time, 4),
                 e
             )
-            raise ValueError(f"Execution failed at node '{node_id}': {str(e)}")
+            raise PipelineError("NODE_EXECUTION_ERROR", str(e), node_id=node_id)
     final_node = order[-1]
     execution_time = round(time.time() - start_time, 4)
     generated_code = generate_pipeline_code(pipeline)

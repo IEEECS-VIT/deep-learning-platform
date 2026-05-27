@@ -9,52 +9,58 @@ interface ConfigPanelProps {
 
 type ConfigFieldSchema = {
   type?: string;
+  label?: string;
   options?: string[];
-  default?: string;
+  default?: unknown;
+  min?: number;
+  max?: number;
+  visible_if?: Record<string, unknown[] | unknown>;
 };
 
 type ConfigSchemaMap = Record<string, ConfigFieldSchema>;
-
-const MODEL_FIELD_MAP: Record<string, string[]> = {
-  linear_regression: ["fit_intercept"],
-  logistic_regression: ["C", "solver"],
-  decision_tree: ["criterion", "max_depth"],
-  random_forest: ["n_estimators", "max_depth"],
-};
-
-const MODEL_DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
-  linear_regression: { fit_intercept: true },
-  logistic_regression: { C: 1.0, solver: "lbfgs" },
-  decision_tree: { criterion: "gini", max_depth: 5 },
-  random_forest: { n_estimators: 100, max_depth: 5 },
-};
-
-const buildModelConfig = (
-  algorithm: string,
-  existingConfig: Record<string, unknown>,
-  options?: { useExistingValues?: boolean },
-) => {
-  const allowedFields = MODEL_FIELD_MAP[algorithm] ?? [];
-  const defaults = MODEL_DEFAULT_CONFIGS[algorithm] ?? {};
-  const nextConfig: Record<string, unknown> = { algorithm };
-
-  allowedFields.forEach((field) => {
-    if (options?.useExistingValues && field in existingConfig) {
-      nextConfig[field] = existingConfig[field];
-      return;
-    }
-    if (field in defaults) {
-      nextConfig[field] = defaults[field];
-    }
-  });
-
-  return nextConfig;
-};
 
 const areConfigsEqual = (left: Record<string, unknown>, right: Record<string, unknown>) => {
   const leftKeys = Object.keys(left);
   if (leftKeys.length !== Object.keys(right).length) return false;
   return leftKeys.every((key) => Object.is(left[key], right[key]));
+};
+
+const getConfigValue = (
+  schema: ConfigSchemaMap,
+  config: Record<string, unknown>,
+  key: string,
+) => {
+  if (Object.prototype.hasOwnProperty.call(config, key)) return config[key];
+  const field = schema[key];
+  return field?.default;
+};
+
+const shouldRenderField = (
+  schema: ConfigSchemaMap,
+  field: ConfigFieldSchema,
+  config: Record<string, unknown>,
+) => {
+  if (!field.visible_if) return true;
+  return Object.entries(field.visible_if).every(([key, allowed]) => {
+    const currentValue = getConfigValue(schema, config, key);
+    if (Array.isArray(allowed)) return allowed.includes(currentValue);
+    return currentValue === allowed;
+  });
+};
+
+const normalizeConfig = (schema: ConfigSchemaMap, config: Record<string, unknown>) => {
+  const nextConfig: Record<string, unknown> = {};
+  Object.entries(schema).forEach(([key, field]) => {
+    if (!shouldRenderField(schema, field, config)) return;
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      nextConfig[key] = config[key];
+      return;
+    }
+    if (field.default !== undefined) {
+      nextConfig[key] = field.default;
+    }
+  });
+  return nextConfig;
 };
 
 export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
@@ -66,54 +72,148 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
   const configSchema = (selectedNodeMetadata as { config_schema?: ConfigSchemaMap } | null)?.config_schema;
   const nodeConfig =
     ((selectedNode?.data as { config?: Record<string, unknown> } | undefined)?.config as Record<string, unknown>) ?? {};
-  const isModelNode = selectedNode?.type === "model";
-  const modelAlgorithm = isModelNode
-    ? (nodeConfig.algorithm as string | undefined) ??
-      ((configSchema?.algorithm as ConfigFieldSchema | undefined)?.default as string | undefined)
-    : undefined;
-  const filteredConfigEntries = configSchema
-    ? Object.entries(configSchema).filter(([key]) => {
-        if (!isModelNode) return true;
-        if (key === "algorithm") return true;
-        const allowedFields = modelAlgorithm ? MODEL_FIELD_MAP[modelAlgorithm] ?? [] : [];
-        return allowedFields.includes(key);
-      })
-    : [];
-  const orderedConfigEntries = isModelNode
-    ? [...filteredConfigEntries].sort(([leftKey], [rightKey]) => {
-        if (leftKey === "algorithm") return -1;
-        if (rightKey === "algorithm") return 1;
-        return 0;
-      })
-    : filteredConfigEntries;
   const resolvedConfig = configSchema
-    ? Object.fromEntries(
-        orderedConfigEntries.map(([key, field]) => {
-          const typedField = field as ConfigFieldSchema;
-          return [key, nodeConfig[key] ?? typedField.default];
-        })
-      )
+    ? normalizeConfig(configSchema, nodeConfig)
     : nodeConfig;
+  const visibleConfigEntries = configSchema
+    ? Object.entries(configSchema).filter(([, field]) =>
+        shouldRenderField(configSchema, field, { ...nodeConfig, ...resolvedConfig }),
+      )
+    : [];
 
   useEffect(() => {
-    if (!selectedNode || !isModelNode || !modelAlgorithm) return;
-    const nextConfig = buildModelConfig(modelAlgorithm, nodeConfig, { useExistingValues: true });
+    if (!selectedNode || !configSchema) return;
+    const nextConfig = normalizeConfig(configSchema, nodeConfig);
     if (!areConfigsEqual(nextConfig, nodeConfig)) {
       updateNodeConfig(selectedNode.id, nextConfig, { replace: true });
     }
-  }, [selectedNode, isModelNode, modelAlgorithm, nodeConfig, updateNodeConfig]);
+  }, [selectedNodeId, selectedNode?.type, configSchema, nodeConfig, updateNodeConfig]);
 
   const handleConfigChange = (key: string, value: unknown) => {
     if (!selectedNode) return;
-    if (isModelNode && key === "algorithm" && typeof value === "string") {
-      updateNodeConfig(selectedNode.id, buildModelConfig(value, {}, { useExistingValues: false }), { replace: true });
+    if (!configSchema) {
+      updateNodeConfig(selectedNode.id, { [key]: value });
       return;
     }
-    updateNodeConfig(selectedNode.id, { [key]: value });
+    const nextConfig = normalizeConfig(configSchema, { ...nodeConfig, [key]: value });
+    updateNodeConfig(selectedNode.id, nextConfig, { replace: true });
   };
 
-  const inputClassName = "w-full bg-[#1a1a1f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-500";
+  const inputClassName = "w-full bg-[#14141a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30";
   const optionClassName = "bg-[#1a1a1f] text-white";
+  const helperClassName = "text-[11px] text-white/40";
+
+  const renderField = (key: string, field: ConfigFieldSchema, resolvedValue: unknown) => {
+    const fieldType = field.type ?? "string";
+    const hasOptions = Array.isArray(field.options) && field.options.length > 0;
+    const label = field.label ?? key;
+    const minValue = typeof field.min === "number" ? field.min : undefined;
+    const maxValue = typeof field.max === "number" ? field.max : undefined;
+    const showRange = typeof minValue === "number" && typeof maxValue === "number";
+
+    if (fieldType === "boolean") {
+      return (
+        <label className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#14141a] px-3 py-2">
+          <span className="text-sm text-white">{label}</span>
+          <input
+            type="checkbox"
+            checked={Boolean(resolvedValue ?? false)}
+            onChange={(e) => handleConfigChange(key, e.target.checked)}
+            className="h-4 w-4 rounded border border-white/20 bg-[#0f0f13] accent-violet-500"
+          />
+        </label>
+      );
+    }
+
+    if (hasOptions) {
+      return (
+        <select
+          value={(resolvedValue as string | undefined) ?? ""}
+          onChange={(e) => handleConfigChange(key, e.target.value)}
+          className={inputClassName}
+        >
+          <option value="" className={optionClassName}>Select option</option>
+          {field.options?.map((option) => (
+            <option key={option} value={option} className={optionClassName}>{option}</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (fieldType === "integer" || fieldType === "float") {
+      const step = fieldType === "integer" ? 1 : "any";
+      const numericValue = typeof resolvedValue === "number" ? resolvedValue : undefined;
+      return (
+        <div className="flex flex-col gap-2">
+          {showRange ? (
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={minValue}
+                max={maxValue}
+                step={step}
+                value={numericValue ?? minValue ?? 0}
+                onChange={(e) => handleConfigChange(key, Number(e.target.value))}
+                className="flex-1 accent-violet-500 cursor-pointer"
+              />
+              <input
+                type="number"
+                step={step}
+                min={minValue}
+                max={maxValue}
+                value={typeof numericValue === "number" ? String(numericValue) : ""}
+                onChange={(e) =>
+                  handleConfigChange(
+                    key,
+                    e.target.value === ""
+                      ? undefined
+                      : fieldType === "integer"
+                        ? Number.parseInt(e.target.value, 10)
+                        : Number.parseFloat(e.target.value),
+                  )
+                }
+                placeholder={field.default !== undefined ? String(field.default) : ""}
+                className="w-28 bg-[#14141a] border border-white/10 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-violet-500/70"
+              />
+            </div>
+          ) : (
+            <input
+              type="number"
+              step={step}
+              min={minValue}
+              max={maxValue}
+              value={typeof numericValue === "number" ? String(numericValue) : ""}
+              onChange={(e) =>
+                handleConfigChange(
+                  key,
+                  e.target.value === ""
+                    ? undefined
+                    : fieldType === "integer"
+                      ? Number.parseInt(e.target.value, 10)
+                      : Number.parseFloat(e.target.value),
+                )
+              }
+              placeholder={field.default !== undefined ? String(field.default) : ""}
+              className={inputClassName}
+            />
+          )}
+          {showRange && (
+            <div className={helperClassName}>Range: {minValue} – {maxValue}</div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <input
+        type="text"
+        value={(resolvedValue as string | undefined) ?? ""}
+        onChange={(e) => handleConfigChange(key, e.target.value)}
+        placeholder={field.default !== undefined ? String(field.default) : ""}
+        className={inputClassName}
+      />
+    );
+  };
 
   return (
     <div className="w-full h-full p-4 text-white overflow-y-auto">
@@ -133,49 +233,14 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
           </div>
           <div className="mt-6 space-y-4">
             <p className="text-xs text-white/40">Configuration Fields</p>
-            {configSchema && orderedConfigEntries.map(([key, field]) => {
+            {configSchema && visibleConfigEntries.map(([key, field]) => {
               const typedField = field as ConfigFieldSchema;
-              const resolvedValue = nodeConfig[key] ?? typedField.default;
-              const fieldType = typedField.type ?? "string";
-              const hasOptions = Array.isArray(typedField.options) && typedField.options.length > 0;
+              const resolvedValue = resolvedConfig[key] ?? typedField.default;
+              const label = typedField.label ?? key;
               return (
-                <div key={key} className="flex flex-col gap-2">
-                  <label className="text-sm text-white">{key}</label>
-                  {fieldType === "boolean" ? (
-                    <label className="flex items-center gap-2 text-sm text-white">
-                      <input type="checkbox" checked={Boolean(resolvedValue ?? false)}
-                        onChange={(e) => handleConfigChange(key, e.target.checked)}
-                        className="h-4 w-4 rounded border border-white/20 bg-[#1a1a1f]" />
-                      {String(key)}
-                    </label>
-                  ) : hasOptions ? (
-                    <select value={(resolvedValue as string | undefined) ?? ""}
-                      onChange={(e) => handleConfigChange(key, e.target.value)}
-                      className={inputClassName}>
-                      <option value="" className={optionClassName}>Select option</option>
-                      {typedField.options?.map((option) => (
-                        <option key={option} value={option} className={optionClassName}>{option}</option>
-                      ))}
-                    </select>
-                  ) : fieldType === "integer" ? (
-                    <input type="number" step="1"
-                      value={typeof resolvedValue === "number" ? String(resolvedValue) : ""}
-                      onChange={(e) => handleConfigChange(key, e.target.value === "" ? undefined : Number.parseInt(e.target.value, 10))}
-                      placeholder={typedField.default !== undefined ? String(typedField.default) : ""}
-                      className={inputClassName} />
-                  ) : fieldType === "float" ? (
-                    <input type="number" step="any"
-                      value={typeof resolvedValue === "number" ? String(resolvedValue) : ""}
-                      onChange={(e) => handleConfigChange(key, e.target.value === "" ? undefined : Number.parseFloat(e.target.value))}
-                      placeholder={typedField.default !== undefined ? String(typedField.default) : ""}
-                      className={inputClassName} />
-                  ) : (
-                    <input type="text"
-                      value={(resolvedValue as string | undefined) ?? ""}
-                      onChange={(e) => handleConfigChange(key, e.target.value)}
-                      placeholder={typedField.default !== undefined ? String(typedField.default) : ""}
-                      className={inputClassName} />
-                  )}
+                <div key={key} className="flex flex-col gap-2 rounded-xl border border-white/5 bg-[#111117] p-3">
+                  <label className="text-sm font-medium text-white/90">{label}</label>
+                  {renderField(key, typedField, resolvedValue)}
                 </div>
               );
             })}

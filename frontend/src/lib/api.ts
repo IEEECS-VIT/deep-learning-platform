@@ -1,4 +1,6 @@
-const BASE_URL = "http://localhost:8000";
+import { extractErrorMessage, parseErrorResponse } from "./errors";
+
+const BASE_URL = "/api";
 
 interface Node {
   id: string;
@@ -17,15 +19,26 @@ interface PipelinePayload {
 }
 
 export async function runPipeline(payload: PipelinePayload) {
-  const response = await fetch(`${BASE_URL}/run_pipeline`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/run_pipeline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    throw { message: extractErrorMessage(error), isNetworkError: true };
+  }
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Pipeline execution failed");
+    const parsed = await parseErrorResponse(response);
+    throw {
+      message: parsed.message,
+      nodeId: parsed.nodeId,
+      nodeType: parsed.nodeType,
+      detail: parsed.detail,
+      status: response.status,
+    };
   }
 
   const data = await response.json();
@@ -33,7 +46,15 @@ export async function runPipeline(payload: PipelinePayload) {
 }
 
 export async function getNodes() {
-  const response = await fetch(`${BASE_URL}/nodes`);
-  if (!response.ok) throw new Error("Failed to fetch nodes");
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/nodes`);
+  } catch (error) {
+    throw { message: extractErrorMessage(error), isNetworkError: true };
+  }
+  if (!response.ok) {
+    const parsed = await parseErrorResponse(response);
+    throw { message: parsed.message, detail: parsed.detail, status: response.status };
+  }
   return response.json();
 }
