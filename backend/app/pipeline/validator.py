@@ -1,16 +1,17 @@
 from app.pipeline.registry.node_registry import NODE_REGISTRY
 from app.pipeline.utils import build_graph, topological_sort
+from app.pipeline.error_handler import PipelineError
 
 def validate_pipeline(pipeline):
     if "nodes" not in pipeline or not pipeline["nodes"]:
-        raise ValueError("Pipeline must contain at least one node")
+        raise PipelineError("Pipeline must contain at least one node")
     if "edges" not in pipeline:
-        raise ValueError("Pipeline missing edges")
+        raise PipelineError("Pipeline missing edges")
     node_map = {node["id"]: node for node in pipeline["nodes"]}
     for node in pipeline["nodes"]:
         node_type = node["type"]
         if node_type not in NODE_REGISTRY:
-            raise ValueError(f"Unknown node type: {node_type}")
+            raise PipelineError(f"Unknown node type: {node_type}")
 
     graph, _ = build_graph(pipeline)
     topological_sort(pipeline)
@@ -20,7 +21,7 @@ def validate_pipeline(pipeline):
         source = edge["source"]
         target = edge["target"]
         if source not in node_map or target not in node_map:
-            raise ValueError(f"Invalid edge: {source} -> {target}")
+            raise PipelineError(f"Invalid edge: {source} -> {target}")
         parent_map[target].append(source)
     for node_id, node in node_map.items():
         node_type = node["type"]
@@ -33,5 +34,5 @@ def validate_pipeline(pipeline):
             available_outputs.extend(parent_outputs)
         missing_inputs = [input_name for input_name in required_inputs if input_name not in available_outputs]
         if missing_inputs:
-            raise ValueError(f"{node_type} node missing required inputs: {missing_inputs}")
+            raise PipelineError(f"{node_type} node missing required inputs: {missing_inputs}")
     return True

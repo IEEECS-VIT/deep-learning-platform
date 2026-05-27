@@ -44,12 +44,14 @@ interface OutputStore {
   latestResult: PipelineExecutionResult | null;
   loading: boolean;
   error: string | null;
+  errorNodeId: string | null;
+  errorNodeType: string | null;
   activeTab: OutputTab;
   savedRuns: SavedRun[];
   selectedCompareIds: string[];
   startExecution: () => void;
   setExecutionResult: (result: PipelineExecutionResult) => void;
-  setExecutionError: (message: string) => void;
+  setExecutionError: (payload: { message: string; nodeId?: string | null; nodeType?: string | null }) => void;
   setActiveTab: (tab: OutputTab) => void;
   saveRun: (run: SavedRun) => void;
   toggleCompareRun: (id: string) => void;
@@ -59,6 +61,8 @@ export const useOutputStore = create<OutputStore>((set) => ({
   latestResult: null,
   loading: false,
   error: null,
+  errorNodeId: null,
+  errorNodeType: null,
   activeTab: "results",
   savedRuns: [],
   selectedCompareIds: [],
@@ -66,6 +70,8 @@ export const useOutputStore = create<OutputStore>((set) => ({
     set(() => ({
       loading: true,
       error: null,
+      errorNodeId: null,
+      errorNodeType: null,
       latestResult: null,
       activeTab: "results",
     })),
@@ -74,12 +80,16 @@ export const useOutputStore = create<OutputStore>((set) => ({
       latestResult: result,
       loading: false,
       error: null,
+      errorNodeId: null,
+      errorNodeType: null,
       activeTab: "results",
     })),
-  setExecutionError: (message) =>
+  setExecutionError: ({ message, nodeId, nodeType }) =>
     set(() => ({
       error: message,
       loading: false,
+      errorNodeId: nodeId ?? null,
+      errorNodeType: nodeType ?? null,
     })),
   setActiveTab: (tab) => set(() => ({ activeTab: tab })),
   saveRun: (run) =>

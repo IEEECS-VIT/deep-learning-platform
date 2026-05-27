@@ -65,34 +65,71 @@ NODE_REGISTRY = {
             "config_schema": {
                 "algorithm": {
                     "type": "string",
+                    "label": "Algorithm",
                     "options": ["linear_regression", "logistic_regression", "decision_tree", "random_forest"],
                     "default": "logistic_regression"
                 },
+
                 "fit_intercept": {
                     "type": "boolean",
-                    "default": True
+                    "label": "Fit Intercept",
+                    "default": True,
+                    "visible_if": {
+                        "algorithm": ["linear_regression", "logistic_regression"]
+                    }
                 },
+
                 "max_depth": {
                     "type": "integer",
-                    "default": 5
+                    "label": "Max Depth",
+                    "default": 5,
+                    "min": 1,
+                    "max": 100,
+                    "visible_if": {
+                        "algorithm": ["decision_tree", "random_forest"]
+                    }
                 },
+
                 "n_estimators": {
                     "type": "integer",
-                    "default": 100
+                    "label": "Number of Estimators",
+                    "default": 100,
+                    "min": 1,
+                    "max": 1000,
+                    "visible_if": {
+                        "algorithm": ["random_forest"]
+                    }
                 },
+
                 "criterion": {
                     "type": "string",
+                    "label": "Criterion",
                     "options": ["gini", "entropy"],
-                    "default": "gini"
+                    "default": "gini",
+                    "visible_if": {
+                        "algorithm": ["decision_tree", "random_forest"]
+                    }
                 },
+
                 "C": {
                     "type": "float",
-                    "default": 1.0
+                    "label": "Regularization Strength",
+                    "default": 1.0,
+                    "min": 0.0001,
+                    "max": 1000,
+                    "visible_if": {
+                        "algorithm": ["logistic_regression"]
+                    }
                 },
+
                 "solver": {
                     "type": "string",
+                    "label": "Solver",
                     "options": ["lbfgs", "liblinear"],
-                    "default": "lbfgs"
+                    "default": "lbfgs",
+                    "visible_if": {
+                        "algorithm": ["logistic_regression"]
+                    }
                 }
             }
         }

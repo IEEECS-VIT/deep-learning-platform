@@ -4,6 +4,7 @@ import Canvas from "@/components/Canvas";
 import Sidebar from "@/components/Sidebar";
 import { usePipelineStore } from "@/store/pipelineStore";
 import { runPipeline, getNodes } from "@/lib/api";
+import { extractErrorContext, extractErrorMessage } from "@/lib/errors";
 import ConfigPanel from "@/components/ConfigPanel";
 import OutputPanel from "@/components/output/OutputPanel";
 import { useOutputStore } from "@/store/outputStore";
@@ -129,9 +130,9 @@ export default function Home() {
       setExecutionResult(res);
       setSaveButtonState("idle");
     } catch (e: unknown) {
-      const errorMessage =
-        e instanceof Error ? e.message : "Something went wrong";
-      setExecutionError(errorMessage);
+      const errorMessage = extractErrorMessage(e);
+      const { nodeId, nodeType } = extractErrorContext(e);
+      setExecutionError({ message: errorMessage, nodeId, nodeType });
       setToast({ message: errorMessage, type: "error" });
       setToastVisible(true);
       setTimeout(() => setToastVisible(false), 3000);
@@ -143,7 +144,7 @@ export default function Home() {
       try {
         setNodeMetadata(await getNodes());
       } catch (error) {
-        console.error("Failed to fetch metadata:", error);
+        console.error("Failed to fetch metadata:", extractErrorMessage(error));
       }
     };
     fetchNodeMetadata();

@@ -81,19 +81,6 @@ export default function Canvas() {
     [setSelectedEdge],
   );
 
-  const onNodeDoubleClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      deleteNode(node.id);
-    },
-    [deleteNode],
-  );
-
-  const onEdgeDoubleClick = useCallback(
-    (_: React.MouseEvent, edge: Edge) => {
-      deleteEdge(edge.id);
-    },
-    [deleteEdge],
-  );
 
   const handleNodeDragStart = useCallback((_: React.MouseEvent, node: Node) => {
     dragStartPosition.current = { x: node.position.x, y: node.position.y };
@@ -152,8 +139,6 @@ export default function Canvas() {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
-        onNodeDoubleClick={onNodeDoubleClick}
-        onEdgeDoubleClick={onEdgeDoubleClick}
         onNodeDragStart={handleNodeDragStart}
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
