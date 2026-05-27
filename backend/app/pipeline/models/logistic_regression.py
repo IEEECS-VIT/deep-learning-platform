@@ -7,7 +7,11 @@ def train(input_data, config):
     y_train = input_data["y_train"]
     y_test = input_data["y_test"]
     
-    model = LogisticRegression(max_iter=1000)
+    model = LogisticRegression(
+        C=config.get("C", 1.0),
+        solver=config.get("solver", "lbfgs"),
+        max_iter=1000
+    )
     
     model.fit(X_train, y_train)
     

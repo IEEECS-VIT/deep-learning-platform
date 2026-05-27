@@ -7,7 +7,11 @@ def train(input_data, config):
     y_train = input_data["y_train"]
     y_test = input_data["y_test"]
     
-    model = RandomForestClassifier(random_state=42)
+    model = RandomForestClassifier(
+        n_estimators=config.get("n_estimators", 100),
+        max_depth=config.get("max_depth", 5),
+        random_state=42
+    )
     model.fit(X_train, y_train)
     
     predictions = model.predict(X_test)
