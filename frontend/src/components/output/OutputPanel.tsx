@@ -5,6 +5,7 @@ import {
   type PipelineExecutionResult,
   type SavedRun,
 } from "@/store/outputStore";
+import { useToastStore } from "@/store/toastStore";
 
 const tabs = [
   { id: "results", label: "Results" },
@@ -222,9 +223,7 @@ const MetricCard = ({
 
 const ResultsTab = () => {
   const { latestResult, loading, error, saveRun, savedRuns } = useOutputStore();
-  const [saveButtonState, setSaveButtonState] = useState<"idle" | "saved">(
-    "idle",
-  );
+  const addToast = useToastStore((state) => state.addToast);
   const output = latestResult?.output;
   const metrics = output?.metrics ?? {};
   const preview = Array.isArray(output?.predictions_preview)
@@ -239,14 +238,10 @@ const ResultsTab = () => {
       const run = buildSavedRun(latestResult);
       if (run) {
         saveRun(run);
-        setSaveButtonState("saved");
+        addToast("Run saved successfully!");
       }
     }
   };
-
-  useEffect(() => {
-    setSaveButtonState("idle");
-  }, [latestResult]);
 
   if (loading)
     return (
@@ -310,7 +305,7 @@ const ResultsTab = () => {
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
           </svg>
-          {saveButtonState === "saved" ? "Saved" : "Save Run"}
+          Save Run
         </button>
       </div>
       <div>
@@ -414,7 +409,7 @@ const ResultsTab = () => {
 
 const CodeExportTab = () => {
   const { latestResult } = useOutputStore();
-  const [toast, setToast] = useState<string | null>(null);
+  const addToast = useToastStore((state) => state.addToast);
   const code = latestResult?.generated_code ?? "";
 
   if (!code)
@@ -433,8 +428,7 @@ const CodeExportTab = () => {
         <button
           onClick={async () => {
             await navigator.clipboard.writeText(code);
-            setToast("Copied!");
-            setTimeout(() => setToast(null), 2000);
+            addToast("Code copied!");
           }}
           className="h-8 px-3 rounded-lg border border-white/10 bg-white/5 text-[12px] text-white/80 hover:text-white"
         >
@@ -446,11 +440,6 @@ const CodeExportTab = () => {
           {tokenizedPython(code)}
         </div>
       </div>
-      {toast && (
-        <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(16,185,129,0.35)] bg-[rgba(16,185,129,0.15)] px-3 py-1 text-[11px] text-[#34d399]">
-          {toast}
-        </div>
-      )}
     </div>
   );
 };

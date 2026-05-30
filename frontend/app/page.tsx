@@ -2,12 +2,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Canvas from "@/components/Canvas";
 import Sidebar from "@/components/Sidebar";
+import Toast from "@/components/Toast";
 import { usePipelineStore } from "@/store/pipelineStore";
 import { runPipeline, getNodes } from "@/lib/api";
 import { extractErrorContext, extractErrorMessage } from "@/lib/errors";
 import ConfigPanel from "@/components/ConfigPanel";
 import OutputPanel from "@/components/output/OutputPanel";
 import { useOutputStore } from "@/store/outputStore";
+import { useToastStore } from "@/store/toastStore";
 
 const SIDEBAR_WIDTH = 260;
 const MIN_CONFIG = 240;
@@ -48,14 +50,7 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState<"config" | "output" | null>(
     null,
   );
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [saveButtonState, setSaveButtonState] = useState<"idle" | "saved">(
-    "idle",
-  );
+  const addToast = useToastStore((state) => state.addToast);
 
   const dragging = useRef<"config" | "output" | null>(null);
   const startPos = useRef(0);
@@ -128,14 +123,11 @@ export default function Home() {
       };
       const res = await runPipeline(payload);
       setExecutionResult(res);
-      setSaveButtonState("idle");
     } catch (e: unknown) {
       const errorMessage = extractErrorMessage(e);
       const { nodeId, nodeType } = extractErrorContext(e);
       setExecutionError({ message: errorMessage, nodeId, nodeType });
-      setToast({ message: errorMessage, type: "error" });
-      setToastVisible(true);
-      setTimeout(() => setToastVisible(false), 3000);
+      addToast(errorMessage, "error");
     }
   };
 
@@ -203,16 +195,13 @@ export default function Home() {
       const run = buildSavedRun(latestResult);
       if (run) {
         saveRun(run);
-        setSaveButtonState("saved");
-        setToast({ message: "Run saved successfully!", type: "success" });
-        setToastVisible(true);
-        setTimeout(() => setToastVisible(false), 2000);
+        addToast("Run saved successfully!");
       }
     }
   };
 
   useEffect(() => {
-    setSaveButtonState("idle");
+    // Cleanup effect if needed
   }, [latestResult]);
 
   const ResizeHandle = ({
@@ -363,7 +352,7 @@ export default function Home() {
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            {saveButtonState === "saved" ? "Saved" : "Save Run"}
+            Save Run
           </button>
           <button
             onClick={handleRun}
@@ -445,13 +434,10 @@ export default function Home() {
             </button>
           ))}
         </div>
-
-        {/* Sidebar — fixed width, no resize */}
         <div
           style={{ width: sidebarOpen ? SIDEBAR_WIDTH : 0 }}
           className="shrink-0 flex flex-col overflow-hidden bg-[#111114] border-r border-white/[0.05] transition-all duration-300 ease-out"
         >
-          {/* Sidebar header with collapse button on RIGHT (collapses to left) */}
           <div className="h-9 flex items-center justify-between px-3 border-b border-white/[0.05] shrink-0">
             <span className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">
               Available Nodes
@@ -460,7 +446,6 @@ export default function Home() {
               onClick={() => setSidebarOpen(false)}
               className="w-5 h-5 flex items-center justify-center text-white/30 hover:text-white/60 transition-colors"
             >
-              {/* Arrow points LEFT = collapse to left */}
               <svg
                 width="11"
                 height="11"
@@ -563,7 +548,7 @@ export default function Home() {
           }`}
           style={{ width: configOpen ? configWidth : 36 }}
         >
-          {/* Config header — always visible, clean minimal design */}
+          {/* Config header */}
           <div className="h-9 flex items-center px-2 border-b border-white/[0.05] shrink-0">
             <button
               onClick={() => setConfigOpen((v) => !v)}
@@ -625,47 +610,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed bottom-4 ${
-            toast.type === "error" ? "right-4" : "left-4"
-          } px-4 py-3 rounded-lg border text-sm flex items-center gap-2 transition-all duration-300 ${
-            toastVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-          } ${
-            toast.type === "success"
-              ? "bg-[rgba(16,185,129,0.15)] border-[rgba(16,185,129,0.35)] text-[#34d399]"
-              : "bg-[rgba(239,68,68,0.15)] border-[rgba(239,68,68,0.35)] text-[#f87171]"
-          }`}
-        >
-          {toast.type === "success" ? (
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          ) : (
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          )}
-          {toast.message}
-        </div>
-      )}
+      {/* Toast Notifications */}
+      <Toast />
     </div>
   );
 }
