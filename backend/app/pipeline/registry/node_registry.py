@@ -1,4 +1,4 @@
-from app.pipeline.nodes import dataset_node, model_node, preprocess_node, train_test_split_node
+from app.pipeline.nodes import dataset_node, model_node, preprocess_node, train_test_split_node, neural_network_node
 
 NODE_REGISTRY = {
     "dataset": {
@@ -130,6 +130,39 @@ NODE_REGISTRY = {
                     "visible_if": {
                         "algorithm": ["logistic_regression"]
                     }
+                }
+            }
+        }
+    },
+
+    "neural_network": {
+        "executor": neural_network_node.run,
+        "metadata": {
+            "display_name": "Neural Network",
+            "description": "Train Deep Learning Models",
+            "inputs": ["X_train", "X_test", "y_train", "y_test"],
+            "outputs": ["predictions", "metrics"],
+            "config_schema": {
+                "architecture": {
+                    "type": "string",
+                    "options": ["mlp"],
+                    "default": "mlp"
+                },
+                "hidden_size": {
+                    "type": "integer",
+                    "default": 128
+                },
+                "epochs": {
+                    "type": "integer",
+                    "default": 10
+                },
+                "batch_size": {
+                    "type": "integer",
+                    "default": 32
+                },
+                "learning_rate": {
+                    "type": "float",
+                    "default": 0.001
                 }
             }
         }
