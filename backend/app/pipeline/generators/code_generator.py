@@ -19,7 +19,7 @@ def generate_pipeline_code(pipeline):
 
         all_imports.update(imports)
         all_code.extend(code)
-        if node_type == "model":
+        if node_type in ["model", "neural_network"]:
             metrics_generator = CODE_GENERATOR_REGISTRY["metrics"]
 
             metric_imports, metric_code = metrics_generator(config)
