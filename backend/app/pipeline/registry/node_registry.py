@@ -163,6 +163,19 @@ NODE_REGISTRY = {
                 "learning_rate": {
                     "type": "float",
                     "default": 0.001
+                },
+                "batch_size": {
+                    "type": "integer",
+                    "label": "Batch Size",
+                    "default": 32,
+                    "min": 1,
+                    "max": 1024
+                },
+                "optimizer": {
+                    "type": "string",
+                    "label": "Optimizer",
+                    "options": ["adam"],
+                    "default": "adam"
                 }
             }
         }

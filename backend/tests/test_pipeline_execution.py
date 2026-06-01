@@ -1,4 +1,5 @@
 from app.pipeline.executor import run_pipeline
+from app.pipeline.error_handler import PipelineError
 import pytest
 
 def test_classification_pipeline():
@@ -193,5 +194,6 @@ def test_invalid_task_combination():
         ]
     }
 
-    with pytest.raises(ValueError):
+    with pytest.raises(PipelineError) as exc_info:
         run_pipeline(pipeline)
+    assert exc_info.value.error_type == "NODE_EXECUTION_ERROR"
