@@ -1,3 +1,4 @@
+from networkx import config
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -14,6 +15,8 @@ def train(input_data, config):
     hidden_size = config.get("hidden_size", 128)
     epochs = config.get("epochs", 10)
     learning_rate = config.get("learning_rate", 0.001)
+    batch_size = config.get("batch_size", 32)
+    optimizer_name = config.get("optimizer", "adam")
 
     model = MLP(
         input_size=input_size,
@@ -21,16 +24,22 @@ def train(input_data, config):
         output_size=output_size
     )
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(
-        model.parameters(),
-        lr=learning_rate
-    )
+    if optimizer_name == "adam":
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=learning_rate
+        )
+    else:
+        raise ValueError(f"Unknown optimizer: {optimizer_name}")
+    
+    loss_history = []
     for _ in range(epochs):
         optimizer.zero_grad()
         outputs = model(X_train)
         loss = criterion(outputs, y_train)
         loss.backward()
         optimizer.step()
+        loss_history.append(float(loss.item()))
 
     with torch.no_grad():
         predictions = model(X_test)
@@ -49,9 +58,17 @@ def train(input_data, config):
             "accuracy": float(accuracy),
             "loss": float(loss.item())
         },
+        "loss_history": loss_history,
         "config_used": config,
         "run_summary": {
             "model": "mlp",
             "task_type": "classification"
+        },
+        "training_summary": {
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "hidden_size": hidden_size,
+            "batch_size": batch_size,
+            "optimizer": optimizer_name
         }
     }
