@@ -4,12 +4,14 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import accuracy_score
 from app.dl.models.mlp import MLP
+from torch.utils.data import TensorDataset, DataLoader
 
 def train(input_data, config):
     X_train = torch.tensor(input_data["X_train"], dtype=torch.float32)
     X_test = torch.tensor(input_data["X_test"], dtype=torch.float32)
     y_train = torch.tensor(input_data["y_train"], dtype=torch.long)
     y_test = torch.tensor(input_data["y_test"], dtype=torch.long)
+
     input_size = X_train.shape[1]
     output_size = len(set(input_data["y_train"]))
     hidden_size = config.get("hidden_size", 128)
@@ -17,6 +19,8 @@ def train(input_data, config):
     learning_rate = config.get("learning_rate", 0.001)
     batch_size = config.get("batch_size", 32)
     optimizer_name = config.get("optimizer", "adam")
+    train_dataset = TensorDataset(X_train, y_train)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     model = MLP(
         input_size=input_size,
@@ -34,12 +38,17 @@ def train(input_data, config):
     
     loss_history = []
     for _ in range(epochs):
-        optimizer.zero_grad()
-        outputs = model(X_train)
-        loss = criterion(outputs, y_train)
-        loss.backward()
-        optimizer.step()
-        loss_history.append(float(loss.item()))
+        epoch_loss = 0.0
+        for batch_X, batch_y in train_loader:
+            optimizer.zero_grad()
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+        loss_history.append(
+            epoch_loss / len(train_loader)
+        )
 
     with torch.no_grad():
         predictions = model(X_test)
@@ -56,7 +65,7 @@ def train(input_data, config):
         "predictions_preview": predicted_classes[:10].tolist(),
         "metrics": {
             "accuracy": float(accuracy),
-            "loss": float(loss.item())
+            "loss": float(loss_history[-1])
         },
         "loss_history": loss_history,
         "config_used": config,
