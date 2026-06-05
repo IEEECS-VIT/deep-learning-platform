@@ -145,7 +145,7 @@ NODE_REGISTRY = {
             "config_schema": {
                 "architecture": {
                     "type": "string",
-                    "options": ["mlp"],
+                    "options": ["mlp", "cnn"],
                     "default": "mlp"
                 },
                 "hidden_size": {
