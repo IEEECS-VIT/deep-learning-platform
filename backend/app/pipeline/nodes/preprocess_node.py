@@ -7,6 +7,29 @@ SCALER_REGISTRY = {
 }
 
 def run(input_data, config):
+    if input_data.get("data_format") == "image":
+        output = {
+            "X_train": input_data["X_train"],
+            "X_test": input_data["X_test"],
+            "y_train": input_data["y_train"],
+            "y_test": input_data["y_test"],
+            "task_type": input_data["task_type"],
+            "preprocessing": {
+                "scaler_type": "none"
+            }
+        }
+        for key in [
+            "data_format",
+            "dataset_name",
+            "data_dir",
+            "image_channels",
+            "image_height",
+            "image_width",
+        ]:
+            if key in input_data:
+                output[key] = input_data[key]
+        return output
+
     scaler_type = config.get("scaler_type", "standard")
     if scaler_type not in SCALER_REGISTRY:
         raise ValueError(f"Unknown scaler type: {scaler_type}")
@@ -20,7 +43,7 @@ def run(input_data, config):
     scaled_X_train = scaler.fit_transform(X_train)
     scaled_X_test = scaler.transform(X_test)
     
-    return {
+    output = {
         "X_train": scaled_X_train,
         "X_test": scaled_X_test,
         "y_train": input_data["y_train"],
@@ -30,3 +53,16 @@ def run(input_data, config):
             "scaler_type": scaler_type
         }
     }
+
+    for key in [
+        "data_format",
+        "dataset_name",
+        "data_dir",
+        "image_channels",
+        "image_height",
+        "image_width",
+    ]:
+        if key in input_data:
+            output[key] = input_data[key]
+
+    return output

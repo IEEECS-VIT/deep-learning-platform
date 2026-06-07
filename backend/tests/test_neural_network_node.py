@@ -38,3 +38,35 @@ def test_invalid_hidden_size():
     }
     with pytest.raises(ValueError):
         run({}, config)
+
+def test_invalid_cnn_filters():
+    config = {
+        "architecture": "cnn",
+        "filters": 0
+    }
+    with pytest.raises(ValueError):
+        run({"data_format": "image"}, config)
+
+def test_invalid_cnn_kernel_size():
+    config = {
+        "architecture": "cnn",
+        "kernel_size": 0
+    }
+    with pytest.raises(ValueError):
+        run({"data_format": "image"}, config)
+
+def test_invalid_cnn_dropout():
+    config = {
+        "architecture": "cnn",
+        "dropout": 1.5
+    }
+    with pytest.raises(ValueError):
+        run({"data_format": "image"}, config)
+
+def test_invalid_optimizer():
+    config = {
+        "architecture": "cnn",
+        "optimizer": "banana"
+    }
+    with pytest.raises(ValueError):
+        run({"data_format": "image"}, config)

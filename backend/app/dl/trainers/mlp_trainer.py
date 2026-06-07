@@ -12,6 +12,10 @@ def train(input_data, config):
     y_train = torch.tensor(input_data["y_train"], dtype=torch.long)
     y_test = torch.tensor(input_data["y_test"], dtype=torch.long)
 
+    if X_train.ndim > 2:
+        X_train = torch.flatten(X_train, start_dim=1)
+        X_test = torch.flatten(X_test, start_dim=1)
+
     input_size = X_train.shape[1]
     output_size = len(set(input_data["y_train"]))
     hidden_size = config.get("hidden_size", 128)
@@ -30,6 +34,11 @@ def train(input_data, config):
     criterion = nn.CrossEntropyLoss()
     if optimizer_name == "adam":
         optimizer = optim.Adam(
+            model.parameters(),
+            lr=learning_rate
+        )
+    elif optimizer_name == "sgd":
+        optimizer = optim.SGD(
             model.parameters(),
             lr=learning_rate
         )

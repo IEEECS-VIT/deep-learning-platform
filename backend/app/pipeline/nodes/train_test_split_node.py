@@ -9,10 +9,23 @@ def run(input_data, config):
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
     
-    return {
+    output = {
         "X_train": X_train,
         "X_test": X_test,
         "y_train": y_train,
         "y_test": y_test,
         "task_type": input_data["task_type"]
     }
+
+    for key in [
+        "data_format",
+        "dataset_name",
+        "data_dir",
+        "image_channels",
+        "image_height",
+        "image_width",
+    ]:
+        if key in input_data:
+            output[key] = input_data[key]
+
+    return output
