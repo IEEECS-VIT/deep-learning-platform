@@ -15,9 +15,10 @@ def generate_preprocess_code(config):
 
     code = [
         "# Preprocessing",
-        f"scaler = {scaler_class}()",
-        "X_train = scaler.fit_transform(X_train)",
-        "X_test = scaler.transform(X_test)",
+        "if globals().get('data_format') != 'image':",
+        f"    scaler = {scaler_class}()",
+        "    X_train = scaler.fit_transform(X_train)",
+        "    X_test = scaler.transform(X_test)",
         ""
     ]
 

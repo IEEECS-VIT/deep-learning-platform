@@ -11,8 +11,22 @@ NODE_REGISTRY = {
             "config_schema": {
                 "dataset": {
                     "type": "string",
-                    "options": ["iris", "wine", "breast_cancer", "california_housing", "diabetes"],
+                    "options": [
+                        "iris",
+                        "wine",
+                        "breast_cancer",
+                        "california_housing",
+                        "diabetes",
+                        "digits",
+                        "mnist",
+                        "fashion_mnist",
+                        "cifar10"
+                    ],
                     "default": "iris"
+                },
+                "data_dir": {
+                    "type": "string",
+                    "default": "data"
                 }
             }
         }
@@ -150,19 +164,51 @@ NODE_REGISTRY = {
                 },
                 "hidden_size": {
                     "type": "integer",
-                    "default": 128
+                    "default": 128,
+                    "min": 1,
+                    "max": 4096
+                },
+                "filters": {
+                    "type": "integer",
+                    "label": "Filters",
+                    "default": 32,
+                    "min": 1,
+                    "max": 512,
+                    "visible_if": {
+                        "architecture": ["cnn"]
+                    }
+                },
+                "kernel_size": {
+                    "type": "integer",
+                    "label": "Kernel Size",
+                    "default": 3,
+                    "min": 1,
+                    "max": 11,
+                    "visible_if": {
+                        "architecture": ["cnn"]
+                    }
+                },
+                "dropout": {
+                    "type": "float",
+                    "label": "Dropout",
+                    "default": 0.2,
+                    "min": 0,
+                    "max": 1,
+                    "visible_if": {
+                        "architecture": ["cnn"]
+                    }
                 },
                 "epochs": {
                     "type": "integer",
-                    "default": 10
-                },
-                "batch_size": {
-                    "type": "integer",
-                    "default": 32
+                    "default": 10,
+                    "min": 1,
+                    "max": 1000
                 },
                 "learning_rate": {
                     "type": "float",
-                    "default": 0.001
+                    "default": 0.001,
+                    "min": 0.000001,
+                    "max": 1
                 },
                 "batch_size": {
                     "type": "integer",
@@ -174,7 +220,7 @@ NODE_REGISTRY = {
                 "optimizer": {
                     "type": "string",
                     "label": "Optimizer",
-                    "options": ["adam"],
+                    "options": ["adam", "sgd"],
                     "default": "adam"
                 }
             }
