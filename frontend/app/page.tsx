@@ -10,6 +10,7 @@ import ConfigPanel from "@/components/ConfigPanel";
 import OutputPanel from "@/components/output/OutputPanel";
 import { useOutputStore } from "@/store/outputStore";
 import { useToastStore } from "@/store/toastStore";
+import type { NodeMetadataEntry } from "@/lib/configSchema";
 
 const SIDEBAR_WIDTH = 260;
 const MIN_CONFIG = 240;
@@ -29,8 +30,13 @@ export default function Home() {
     selectedEdgeId,
     deleteNode,
     deleteEdge,
+    setNodeMetadata,
+    setErrorNodeId,
+    setSelectedNode,
   } = usePipelineStore();
-  const [nodeMetadata, setNodeMetadata] = useState<Record<string, unknown>>({});
+  const [nodeMetadata, setLocalNodeMetadata] = useState<
+    Record<string, NodeMetadataEntry>
+  >({});
   const {
     loading,
     latestResult,
@@ -110,6 +116,8 @@ export default function Home() {
 
   const handleRun = async () => {
     startExecution();
+    setErrorNodeId(null);
+    setOutputOpen(true);
     try {
       const payload = {
         nodes: nodes.map((n) => ({
@@ -123,10 +131,17 @@ export default function Home() {
       };
       const res = await runPipeline(payload);
       setExecutionResult(res);
+      setErrorNodeId(null);
+      addToast("Pipeline executed successfully!");
     } catch (e: unknown) {
       const errorMessage = extractErrorMessage(e);
       const { nodeId, nodeType } = extractErrorContext(e);
       setExecutionError({ message: errorMessage, nodeId, nodeType });
+      if (nodeId) {
+        setErrorNodeId(nodeId);
+        setSelectedNode(nodeId);
+        setConfigOpen(true);
+      }
       addToast(errorMessage, "error");
     }
   };
@@ -134,13 +149,15 @@ export default function Home() {
   useEffect(() => {
     const fetchNodeMetadata = async () => {
       try {
-        setNodeMetadata(await getNodes());
+        const metadata = (await getNodes()) as Record<string, NodeMetadataEntry>;
+        setLocalNodeMetadata(metadata);
+        setNodeMetadata(metadata);
       } catch (error) {
         console.error("Failed to fetch metadata:", extractErrorMessage(error));
       }
     };
     fetchNodeMetadata();
-  }, []);
+  }, [setNodeMetadata]);
 
   useEffect(() => {
     if (editingName && nameInputRef.current) nameInputRef.current.focus();
@@ -466,7 +483,7 @@ export default function Home() {
               pointerEvents: sidebarOpen ? "auto" : "none",
             }}
           >
-            <Sidebar />
+            <Sidebar nodeMetadata={nodeMetadata} />
           </div>
         </div>
 

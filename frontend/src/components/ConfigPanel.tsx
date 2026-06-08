@@ -1,29 +1,20 @@
 "use client";
 import type { Node } from "@xyflow/react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePipelineStore } from "../store/pipelineStore";
+import {
+  areConfigsEqual,
+  normalizeConfig,
+  type ConfigFieldSchema,
+  type ConfigSchemaMap,
+  type NodeMetadataEntry,
+} from "@/lib/configSchema";
+import { mergeSchemaExtensions } from "@/lib/schemaExtensions";
+import { buildDatasetGroups, formatDatasetLabel } from "@/lib/datasetGroups";
 
 interface ConfigPanelProps {
-  nodeMetadata: Record<string, unknown>;
+  nodeMetadata: Record<string, NodeMetadataEntry>;
 }
-
-type ConfigFieldSchema = {
-  type?: string;
-  label?: string;
-  options?: string[];
-  default?: unknown;
-  min?: number;
-  max?: number;
-  visible_if?: Record<string, unknown[] | unknown>;
-};
-
-type ConfigSchemaMap = Record<string, ConfigFieldSchema>;
-
-const areConfigsEqual = (left: Record<string, unknown>, right: Record<string, unknown>) => {
-  const leftKeys = Object.keys(left);
-  if (leftKeys.length !== Object.keys(right).length) return false;
-  return leftKeys.every((key) => Object.is(left[key], right[key]));
-};
 
 const getConfigValue = (
   schema: ConfigSchemaMap,
@@ -31,8 +22,7 @@ const getConfigValue = (
   key: string,
 ) => {
   if (Object.prototype.hasOwnProperty.call(config, key)) return config[key];
-  const field = schema[key];
-  return field?.default;
+  return schema[key]?.default;
 };
 
 const shouldRenderField = (
@@ -48,36 +38,31 @@ const shouldRenderField = (
   });
 };
 
-const normalizeConfig = (schema: ConfigSchemaMap, config: Record<string, unknown>) => {
-  const nextConfig: Record<string, unknown> = {};
-  Object.entries(schema).forEach(([key, field]) => {
-    if (!shouldRenderField(schema, field, config)) return;
-    if (Object.prototype.hasOwnProperty.call(config, key)) {
-      nextConfig[key] = config[key];
-      return;
-    }
-    if (field.default !== undefined) {
-      nextConfig[key] = field.default;
-    }
-  });
-  return nextConfig;
-};
-
 export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
   const { nodes, selectedNodeId, updateNodeConfig } = usePipelineStore();
   const selectedNode = nodes.find((node: Node) => node.id === selectedNodeId);
-  const selectedNodeMetadata = selectedNode?.type
-    ? (nodeMetadata[selectedNode.type] as Record<string, unknown>)
-    : null;
-  const configSchema = (selectedNodeMetadata as { config_schema?: ConfigSchemaMap } | null)?.config_schema;
+  const rawSchema = selectedNode?.type
+    ? nodeMetadata[selectedNode.type]?.config_schema
+    : undefined;
+  const configSchema = useMemo(() => {
+    if (!selectedNode?.type || !rawSchema) return undefined;
+    return mergeSchemaExtensions(
+      selectedNode.type,
+      rawSchema as ConfigSchemaMap,
+    );
+  }, [selectedNode?.type, rawSchema]);
   const nodeConfig =
-    ((selectedNode?.data as { config?: Record<string, unknown> } | undefined)?.config as Record<string, unknown>) ?? {};
+    ((selectedNode?.data as { config?: Record<string, unknown> } | undefined)
+      ?.config as Record<string, unknown>) ?? {};
   const resolvedConfig = configSchema
     ? normalizeConfig(configSchema, nodeConfig)
     : nodeConfig;
   const visibleConfigEntries = configSchema
     ? Object.entries(configSchema).filter(([, field]) =>
-        shouldRenderField(configSchema, field, { ...nodeConfig, ...resolvedConfig }),
+        shouldRenderField(configSchema, field, {
+          ...nodeConfig,
+          ...resolvedConfig,
+        }),
       )
     : [];
 
@@ -95,15 +80,75 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
       updateNodeConfig(selectedNode.id, { [key]: value });
       return;
     }
-    const nextConfig = normalizeConfig(configSchema, { ...nodeConfig, [key]: value });
+    const nextConfig = normalizeConfig(configSchema, {
+      ...nodeConfig,
+      [key]: value,
+    });
     updateNodeConfig(selectedNode.id, nextConfig, { replace: true });
   };
 
-  const inputClassName = "w-full bg-[#14141a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30";
+  const inputClassName =
+    "w-full bg-[#14141a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30";
   const optionClassName = "bg-[#1a1a1f] text-white";
   const helperClassName = "text-[11px] text-white/40";
 
-  const renderField = (key: string, field: ConfigFieldSchema, resolvedValue: unknown) => {
+  const renderSelectField = (
+    key: string,
+    field: ConfigFieldSchema,
+    resolvedValue: unknown,
+    label: string,
+  ) => {
+    const options = field.options ?? [];
+    const isDatasetField =
+      selectedNode?.type === "dataset" && key === "dataset" && options.length > 0;
+    const groups = isDatasetField ? buildDatasetGroups(options) : null;
+
+    if (groups && groups.length > 0) {
+      return (
+        <select
+          value={(resolvedValue as string | undefined) ?? ""}
+          onChange={(e) => handleConfigChange(key, e.target.value)}
+          className={inputClassName}
+        >
+          <option value="" className={optionClassName}>
+            Select dataset
+          </option>
+          {groups.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.options.map((option) => (
+                <option key={option} value={option} className={optionClassName}>
+                  {formatDatasetLabel(option)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <select
+        value={(resolvedValue as string | undefined) ?? ""}
+        onChange={(e) => handleConfigChange(key, e.target.value)}
+        className={inputClassName}
+      >
+        <option value="" className={optionClassName}>
+          Select {label.toLowerCase()}
+        </option>
+        {options.map((option) => (
+          <option key={option} value={option} className={optionClassName}>
+            {option.replace(/_/g, " ")}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
+  const renderField = (
+    key: string,
+    field: ConfigFieldSchema,
+    resolvedValue: unknown,
+  ) => {
     const fieldType = field.type ?? "string";
     const hasOptions = Array.isArray(field.options) && field.options.length > 0;
     const label = field.label ?? key;
@@ -126,23 +171,13 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
     }
 
     if (hasOptions) {
-      return (
-        <select
-          value={(resolvedValue as string | undefined) ?? ""}
-          onChange={(e) => handleConfigChange(key, e.target.value)}
-          className={inputClassName}
-        >
-          <option value="" className={optionClassName}>Select option</option>
-          {field.options?.map((option) => (
-            <option key={option} value={option} className={optionClassName}>{option}</option>
-          ))}
-        </select>
-      );
+      return renderSelectField(key, field, resolvedValue, label);
     }
 
     if (fieldType === "integer" || fieldType === "float") {
       const step = fieldType === "integer" ? 1 : "any";
-      const numericValue = typeof resolvedValue === "number" ? resolvedValue : undefined;
+      const numericValue =
+        typeof resolvedValue === "number" ? resolvedValue : undefined;
       return (
         <div className="flex flex-col gap-2">
           {showRange ? (
@@ -161,7 +196,9 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
                 step={step}
                 min={minValue}
                 max={maxValue}
-                value={typeof numericValue === "number" ? String(numericValue) : ""}
+                value={
+                  typeof numericValue === "number" ? String(numericValue) : ""
+                }
                 onChange={(e) =>
                   handleConfigChange(
                     key,
@@ -172,7 +209,9 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
                         : Number.parseFloat(e.target.value),
                   )
                 }
-                placeholder={field.default !== undefined ? String(field.default) : ""}
+                placeholder={
+                  field.default !== undefined ? String(field.default) : ""
+                }
                 className="w-28 bg-[#14141a] border border-white/10 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-violet-500/70"
               />
             </div>
@@ -182,7 +221,9 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
               step={step}
               min={minValue}
               max={maxValue}
-              value={typeof numericValue === "number" ? String(numericValue) : ""}
+              value={
+                typeof numericValue === "number" ? String(numericValue) : ""
+              }
               onChange={(e) =>
                 handleConfigChange(
                   key,
@@ -193,12 +234,16 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
                       : Number.parseFloat(e.target.value),
                 )
               }
-              placeholder={field.default !== undefined ? String(field.default) : ""}
+              placeholder={
+                field.default !== undefined ? String(field.default) : ""
+              }
               className={inputClassName}
             />
           )}
           {showRange && (
-            <div className={helperClassName}>Range: {minValue} – {maxValue}</div>
+            <div className={helperClassName}>
+              Range: {minValue} – {maxValue}
+            </div>
           )}
         </div>
       );
@@ -215,6 +260,11 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
     );
   };
 
+  const displayName =
+    selectedNode?.type && nodeMetadata[selectedNode.type]?.display_name
+      ? nodeMetadata[selectedNode.type].display_name
+      : selectedNode?.type?.replace(/_/g, " ");
+
   return (
     <div className="w-full h-full p-4 text-white overflow-y-auto">
       {!selectedNode ? (
@@ -223,7 +273,12 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
         <div className="space-y-4">
           <div>
             <p className="text-xs text-white/40 mb-1">Node Type</p>
-            <p className="text-sm font-semibold capitalize">{selectedNode.type?.replace(/_/g, " ")}</p>
+            <p className="text-sm font-semibold capitalize">{displayName}</p>
+            {selectedNode.type && nodeMetadata[selectedNode.type]?.description && (
+              <p className="text-[11px] text-white/40 mt-1">
+                {nodeMetadata[selectedNode.type].description}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-xs text-white/40 mb-2">Current Config</p>
@@ -233,17 +288,29 @@ export default function ConfigPanel({ nodeMetadata }: ConfigPanelProps) {
           </div>
           <div className="mt-6 space-y-4">
             <p className="text-xs text-white/40">Configuration Fields</p>
-            {configSchema && visibleConfigEntries.map(([key, field]) => {
-              const typedField = field as ConfigFieldSchema;
-              const resolvedValue = resolvedConfig[key] ?? typedField.default;
-              const label = typedField.label ?? key;
-              return (
-                <div key={key} className="flex flex-col gap-2 rounded-xl border border-white/5 bg-[#111117] p-3">
-                  <label className="text-sm font-medium text-white/90">{label}</label>
-                  {renderField(key, typedField, resolvedValue)}
-                </div>
-              );
-            })}
+            {configSchema && visibleConfigEntries.length === 0 && (
+              <p className="text-[12px] text-white/40">
+                No configurable fields for this node.
+              </p>
+            )}
+            {configSchema &&
+              visibleConfigEntries.map(([key, field]) => {
+                const typedField = field as ConfigFieldSchema;
+                const resolvedValue =
+                  resolvedConfig[key] ?? typedField.default;
+                const label = typedField.label ?? key;
+                return (
+                  <div
+                    key={key}
+                    className="flex flex-col gap-2 rounded-xl border border-white/5 bg-[#111117] p-3"
+                  >
+                    <label className="text-sm font-medium text-white/90">
+                      {label}
+                    </label>
+                    {renderField(key, typedField, resolvedValue)}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

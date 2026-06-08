@@ -13,6 +13,8 @@ type PipelineOutput = {
   predictions_preview?: unknown[];
   metrics?: MetricsMap;
   config_used?: Record<string, unknown>;
+  training_summary?: Record<string, unknown>;
+  loss_history?: number[];
   run_summary?: RunSummary;
 };
 

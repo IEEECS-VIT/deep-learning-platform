@@ -7,6 +7,12 @@ import type {
   NodeChange,
   EdgeChange,
 } from "@xyflow/react";
+import {
+  buildDefaultConfig,
+  type ConfigSchemaMap,
+  type NodeMetadataEntry,
+} from "@/lib/configSchema";
+import { mergeSchemaExtensions } from "@/lib/schemaExtensions";
 
 interface Snapshot {
   nodes: Node[];
@@ -18,7 +24,9 @@ interface PipelineStore {
   edges: Edge[];
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
+  errorNodeId: string | null;
   nodeTypeCounts: Record<string, number>;
+  nodeMetadata: Record<string, NodeMetadataEntry>;
   past: Snapshot[];
   future: Snapshot[];
   onNodesChange: (changes: NodeChange[]) => void;
@@ -27,6 +35,8 @@ interface PipelineStore {
   addNode: (type: string, position: { x: number; y: number }) => void;
   setSelectedNode: (nodeId: string | null) => void;
   setSelectedEdge: (edgeId: string | null) => void;
+  setNodeMetadata: (metadata: Record<string, NodeMetadataEntry>) => void;
+  setErrorNodeId: (nodeId: string | null) => void;
   updateNodeConfig: (
     nodeId: string,
     config: Record<string, unknown>,
@@ -42,12 +52,24 @@ interface PipelineStore {
   redo: () => void;
 }
 
+const getDefaultConfigForType = (
+  type: string,
+  metadata: Record<string, NodeMetadataEntry>,
+) => {
+  const schema = metadata[type]?.config_schema;
+  if (!schema) return {};
+  const merged = mergeSchemaExtensions(type, schema as ConfigSchemaMap);
+  return buildDefaultConfig(merged);
+};
+
 export const usePipelineStore = create<PipelineStore>((set) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
   selectedEdgeId: null,
+  errorNodeId: null,
   nodeTypeCounts: {},
+  nodeMetadata: {},
   past: [],
   future: [],
 
@@ -76,16 +98,37 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
           : `node-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const defaultConfig = getDefaultConfigForType(type, state.nodeMetadata);
       return {
         past: [...state.past, { nodes: state.nodes, edges: state.edges }],
         future: [],
         nodes: [
           ...state.nodes,
-          { id: nextId, type, position, data: { label: displayLabel } },
+          {
+            id: nextId,
+            type,
+            position,
+            data: { label: displayLabel, config: defaultConfig },
+          },
         ],
         nodeTypeCounts: { ...state.nodeTypeCounts, [type]: nextCount },
+        errorNodeId: null,
       };
     }),
+
+  setNodeMetadata: (metadata) => set(() => ({ nodeMetadata: metadata })),
+
+  setErrorNodeId: (nodeId) =>
+    set((state) => ({
+      errorNodeId: nodeId,
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          hasError: nodeId !== null && node.id === nodeId,
+        },
+      })),
+    })),
 
   setSelectedNode: (nodeId) =>
     set(() => ({ selectedNodeId: nodeId, selectedEdgeId: null })),
