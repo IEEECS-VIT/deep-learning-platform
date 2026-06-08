@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -12,23 +12,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { usePipelineStore } from "@/store/pipelineStore";
-import DatasetNode from "./nodes/DatasetNode";
-import PreprocessNode from "./nodes/PreprocessNode";
-import ModelNode from "./nodes/ModelNode";
-import TrainTestSplitNode from "./nodes/TrainTestSplitNode";
+import BasePipelineNode from "./nodes/BasePipelineNode";
 import TrashBin from "./TrashBin";
-
-const nodeTypes = {
-  dataset: DatasetNode,
-  preprocess: PreprocessNode,
-  model: ModelNode,
-  train_test_split: TrainTestSplitNode,
-};
 
 export default function Canvas() {
   const {
     nodes,
     edges,
+    nodeMetadata,
     onNodesChange,
     onEdgesChange,
     onConnect,
@@ -39,6 +30,19 @@ export default function Canvas() {
     deleteEdge,
     onNodeDragStop,
   } = usePipelineStore();
+
+  const nodeTypes = useMemo(() => {
+    const types: Record<string, typeof BasePipelineNode> = {};
+    const knownTypes = Object.keys(nodeMetadata);
+    const typesToRegister =
+      knownTypes.length > 0
+        ? knownTypes
+        : ["dataset", "train_test_split", "preprocess", "model", "neural_network"];
+    typesToRegister.forEach((type) => {
+      types[type] = BasePipelineNode;
+    });
+    return types;
+  }, [nodeMetadata]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
@@ -80,7 +84,6 @@ export default function Canvas() {
     },
     [setSelectedEdge],
   );
-
 
   const handleNodeDragStart = useCallback((_: React.MouseEvent, node: Node) => {
     dragStartPosition.current = { x: node.position.x, y: node.position.y };

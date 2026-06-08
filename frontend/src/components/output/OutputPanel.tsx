@@ -1,11 +1,15 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   useOutputStore,
   type PipelineExecutionResult,
   type SavedRun,
 } from "@/store/outputStore";
 import { useToastStore } from "@/store/toastStore";
+import LossCurveChart from "./LossCurveChart";
+import TrainingSummaryCard from "./TrainingSummaryCard";
+import GeneratedCodePanel from "./GeneratedCodePanel";
+import ValidationErrorBanner from "./ValidationErrorBanner";
 
 const tabs = [
   { id: "results", label: "Results" },
@@ -67,114 +71,6 @@ const buildPreviewTable = (preview: unknown[]): TableData => {
   };
 };
 
-const tokenizedPython = (code: string) => {
-  const keywords = new Set([
-    "def",
-    "class",
-    "import",
-    "from",
-    "as",
-    "return",
-    "if",
-    "elif",
-    "else",
-    "for",
-    "while",
-    "try",
-    "except",
-    "with",
-    "True",
-    "False",
-    "None",
-    "in",
-    "and",
-    "or",
-    "not",
-    "print",
-  ]);
-  return code.split("\n").map((line, lineIndex) => {
-    const parts: Array<{ type: string; value: string }> = [];
-    let buffer = "",
-      inString: "single" | "double" | null = null,
-      i = 0;
-    while (i < line.length) {
-      const char = line[i];
-      if (!inString && char === "#") {
-        if (buffer) {
-          parts.push({ type: "plain", value: buffer });
-          buffer = "";
-        }
-        parts.push({ type: "comment", value: line.slice(i) });
-        break;
-      }
-      if (!inString && (char === "'" || char === '"')) {
-        if (buffer) {
-          parts.push({ type: "plain", value: buffer });
-          buffer = "";
-        }
-        inString = char === "'" ? "single" : "double";
-        buffer += char;
-        i++;
-        continue;
-      }
-      if (inString) {
-        buffer += char;
-        if (
-          (inString === "single" && char === "'") ||
-          (inString === "double" && char === '"')
-        ) {
-          parts.push({ type: "string", value: buffer });
-          buffer = "";
-          inString = null;
-        }
-        i++;
-        continue;
-      }
-      if (/[A-Za-z_]/.test(char)) {
-        if (buffer && !/[A-Za-z0-9_]/.test(buffer[buffer.length - 1])) {
-          parts.push({ type: "plain", value: buffer });
-          buffer = "";
-        }
-        let word = char;
-        i++;
-        while (i < line.length && /[A-Za-z0-9_]/.test(line[i])) {
-          word += line[i];
-          i++;
-        }
-        parts.push({
-          type: keywords.has(word) ? "keyword" : "plain",
-          value: word,
-        });
-        continue;
-      }
-      buffer += char;
-      i++;
-    }
-    if (buffer) parts.push({ type: "plain", value: buffer });
-    return (
-      <div key={`line-${lineIndex}`} className="whitespace-pre">
-        {parts.map((part, pi) =>
-          part.type === "keyword" ? (
-            <span key={pi} className="text-[#a78bfa]">
-              {part.value}
-            </span>
-          ) : part.type === "string" ? (
-            <span key={pi} className="text-[#86efac]">
-              {part.value}
-            </span>
-          ) : part.type === "comment" ? (
-            <span key={pi} className="text-white/40">
-              {part.value}
-            </span>
-          ) : (
-            <span key={pi}>{part.value}</span>
-          ),
-        )}
-      </div>
-    );
-  });
-};
-
 const buildSavedRun = (result: PipelineExecutionResult): SavedRun | null => {
   const output = result.output;
   if (!output) return null;
@@ -221,17 +117,76 @@ const MetricCard = ({
   </div>
 );
 
+const StatusBar = ({
+  status,
+  executionTime,
+  loading,
+}: {
+  status?: string;
+  executionTime?: number;
+  loading: boolean;
+}) => (
+  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#141419] px-4 py-3">
+    <div className="flex items-center gap-3">
+      <span
+        className={`text-[11px] rounded-full px-2.5 py-0.5 border capitalize ${
+          loading
+            ? "border-[rgba(59,130,246,0.4)] bg-[rgba(59,130,246,0.15)] text-[#93c5fd]"
+            : status === "success" || status === "completed"
+              ? "border-[rgba(16,185,129,0.35)] bg-[rgba(16,185,129,0.15)] text-[#34d399]"
+              : status === "error"
+                ? "border-[rgba(239,68,68,0.35)] bg-[rgba(239,68,68,0.15)] text-[#f87171]"
+                : "border-white/10 bg-white/5 text-white/40"
+        }`}
+      >
+        {loading ? "running" : (status ?? "idle")}
+      </span>
+      {loading && (
+        <span className="h-4 w-4 rounded-full border-2 border-white/10 border-t-[#7c3aed] animate-spin" />
+      )}
+    </div>
+    <div className="flex flex-wrap items-center gap-4 text-[12px] text-white/50">
+      <span>
+        Execution Time:{" "}
+        <span className="text-white/80 font-medium">
+          {executionTime != null ? `${executionTime.toFixed(3)}s` : "-"}
+        </span>
+      </span>
+    </div>
+  </div>
+);
+
 const ResultsTab = () => {
-  const { latestResult, loading, error, saveRun, savedRuns } = useOutputStore();
+  const { latestResult, loading, error, saveRun } = useOutputStore();
   const addToast = useToastStore((state) => state.addToast);
   const output = latestResult?.output;
   const metrics = output?.metrics ?? {};
+  const lossHistory = Array.isArray(output?.loss_history)
+    ? output.loss_history
+    : [];
+  const trainingSummary = output?.training_summary;
+  const generatedCode = latestResult?.generated_code ?? "";
   const preview = Array.isArray(output?.predictions_preview)
     ? output.predictions_preview
     : [];
   const tableData = buildPreviewTable(preview);
   const hasResult = Boolean(latestResult && !error);
   const canSaveRun = Boolean(latestResult && !error && !loading);
+
+  const primaryMetrics = useMemo(() => {
+    const entries: Array<{ key: string; label: string; value: unknown }> = [];
+    if (metrics.accuracy !== undefined)
+      entries.push({ key: "accuracy", label: "Accuracy", value: metrics.accuracy });
+    if (metrics.loss !== undefined)
+      entries.push({ key: "loss", label: "Loss", value: metrics.loss });
+    const otherKeys = Object.keys(metrics).filter(
+      (k) => k !== "accuracy" && k !== "loss",
+    );
+    otherKeys.forEach((k) =>
+      entries.push({ key: k, label: k.replace(/_/g, " "), value: metrics[k] }),
+    );
+    return entries;
+  }, [metrics]);
 
   const handleSaveRun = () => {
     if (latestResult && canSaveRun) {
@@ -243,47 +198,53 @@ const ResultsTab = () => {
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="animate-pulse space-y-4">
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-xl bg-white/5" />
-          ))}
+      <div className="space-y-6">
+        <StatusBar loading executionTime={undefined} />
+        <div className="animate-pulse space-y-4">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-xl bg-white/5" />
+            ))}
+          </div>
+          <div className="h-28 rounded-xl bg-white/5" />
+          <div className="h-40 rounded-xl bg-white/5" />
+          <div className="h-28 rounded-xl bg-white/5" />
         </div>
-        <div className="h-28 rounded-xl bg-white/5" />
-        <div className="h-28 rounded-xl bg-white/5" />
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
-      <div className="rounded-xl border border-[rgba(239,68,68,0.35)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-[12px] text-[#f87171]">
-        {error}
+      <div className="space-y-4">
+        <StatusBar status="error" loading={false} />
+        <ValidationErrorBanner />
       </div>
     );
+  }
 
-  if (!hasResult)
+  if (!hasResult) {
     return (
-      <div className="rounded-xl border border-white/5 bg-[#141419] px-5 py-6 text-white/50 text-[13px]">
-        Run a pipeline to view metrics, predictions, and model diagnostics.
+      <div className="space-y-4">
+        <StatusBar status="idle" loading={false} />
+        <div className="rounded-xl border border-white/5 bg-[#141419] px-5 py-6 text-white/50 text-[13px]">
+          Run a pipeline to view metrics, predictions, training summary, and
+          generated code.
+        </div>
       </div>
     );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[12px] text-white/50">
-            Time: {latestResult?.execution_time?.toFixed(3) ?? "0.000"}s
-          </span>
-          <span className="text-[12px] text-white/50">
-            Model: {output?.model_name ?? output?.run_summary?.model ?? "-"}
-          </span>
-          <span className="text-[12px] text-white/50">
-            Task: {output?.run_summary?.task_type ?? "-"}
-          </span>
-        </div>
+        <StatusBar
+          status={latestResult?.status ?? "success"}
+          executionTime={latestResult?.execution_time}
+          loading={false}
+        />
         <button
           onClick={handleSaveRun}
           disabled={!canSaveRun}
@@ -293,42 +254,62 @@ const ResultsTab = () => {
               : "border-white/5 bg-white/5 text-white/30 cursor-not-allowed"
           }`}
         >
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
           Save Run
         </button>
       </div>
-      <div>
-        <SectionHeader
-          title="Metrics"
-          subtitle={
-            Object.keys(metrics).length
-              ? "Model performance summary"
-              : "No metrics returned"
-          }
-        />
-        {Object.keys(metrics).length ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-            {Object.entries(metrics).map(([k, v]) => (
-              <MetricCard key={k} label={k} value={v} />
-            ))}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div>
+          <SectionHeader
+            title="Metrics"
+            subtitle={
+              primaryMetrics.length
+                ? "Model performance summary"
+                : "No metrics returned"
+            }
+          />
+          {primaryMetrics.length ? (
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              {primaryMetrics.map(({ key, label, value }) => (
+                <MetricCard
+                  key={key}
+                  label={label}
+                  value={value as number | string | null}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-white/5 bg-[#141419] px-4 py-3 text-[12px] text-white/40">
+              Metrics are not available for this run.
+            </div>
+          )}
+        </div>
+        <div>
+          <SectionHeader
+            title="Training Summary"
+            subtitle="Hyperparameters used during training"
+          />
+          <div className="mt-3">
+            <TrainingSummaryCard
+              trainingSummary={trainingSummary}
+              configUsed={output?.config_used}
+            />
           </div>
-        ) : (
-          <div className="mt-3 rounded-xl border border-white/5 bg-[#141419] px-4 py-3 text-[12px] text-white/40">
-            Metrics are not available for this run.
-          </div>
-        )}
+        </div>
       </div>
+
+      {lossHistory.length > 0 && (
+        <div>
+          <SectionHeader
+            title="Loss Curve"
+            subtitle={`${lossHistory.length} epoch${lossHistory.length === 1 ? "" : "s"}`}
+          />
+          <div className="mt-3 rounded-xl border border-white/5 bg-[#141419] px-4 py-3">
+            <LossCurveChart lossHistory={lossHistory} />
+          </div>
+        </div>
+      )}
+
       <div>
         <SectionHeader
           title="Predictions Preview"
@@ -340,7 +321,7 @@ const ResultsTab = () => {
         />
         {preview.length ? (
           <div className="mt-3 overflow-hidden rounded-xl border border-white/5">
-            <div className="max-h-44 overflow-auto">
+            <div className="max-h-52 overflow-auto">
               <table className="w-full text-left text-[12px]">
                 <thead className="bg-[#141419] text-white/50 sticky top-0">
                   <tr>
@@ -371,73 +352,14 @@ const ResultsTab = () => {
           </div>
         )}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/5 bg-[#141419] px-4 py-3">
-          <p className="text-[11px] uppercase tracking-[0.14em] text-white/40 font-semibold">
-            Pipeline Summary
-          </p>
-          <div className="mt-3 flex items-center gap-6 text-[12px] text-white/70">
-            <div>
-              <p className="text-white/40">Nodes</p>
-              <p className="text-[16px] font-semibold text-white mt-1">
-                {latestResult?.pipeline_summary?.total_nodes ?? "-"}
-              </p>
-            </div>
-            <div>
-              <p className="text-white/40">Edges</p>
-              <p className="text-[16px] font-semibold text-white mt-1">
-                {latestResult?.pipeline_summary?.total_edges ?? "-"}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-white/5 bg-[#141419] px-4 py-3">
-          <p className="text-[11px] uppercase tracking-[0.14em] text-white/40 font-semibold">
-            Saved Runs
-          </p>
-          <p className="mt-2 text-[12px] text-white/60">
-            {savedRuns.length} run{savedRuns.length === 1 ? "" : "s"} saved
-          </p>
-          <p className="mt-1 text-[11px] text-white/40">
-            Use Compare Runs to inspect differences.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
 
-const CodeExportTab = () => {
-  const { latestResult } = useOutputStore();
-  const addToast = useToastStore((state) => state.addToast);
-  const code = latestResult?.generated_code ?? "";
-
-  if (!code)
-    return (
-      <div className="rounded-xl border border-white/5 bg-[#141419] px-5 py-6 text-white/50 text-[13px]">
-        Run a pipeline to generate exportable Python code.
-      </div>
-    );
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] text-white/50">
-          Generated sklearn pipeline code
-        </p>
-        <button
-          onClick={async () => {
-            await navigator.clipboard.writeText(code);
-            addToast("Code copied!");
-          }}
-          className="h-8 px-3 rounded-lg border border-white/10 bg-white/5 text-[12px] text-white/80 hover:text-white"
-        >
-          Copy
-        </button>
-      </div>
-      <div className="rounded-xl border border-white/5 bg-[#0e0e12]">
-        <div className="max-h-64 overflow-auto px-4 py-3 font-mono text-[12px] leading-relaxed text-white/90">
-          {tokenizedPython(code)}
+      <div>
+        <SectionHeader
+          title="Generated Code"
+          subtitle="Exportable Python pipeline code"
+        />
+        <div className="mt-3">
+          <GeneratedCodePanel code={generatedCode} embedded />
         </div>
       </div>
     </div>
@@ -570,28 +492,15 @@ const CompareRunsTab = () => {
 };
 
 export default function OutputPanel() {
-  const { activeTab, setActiveTab, latestResult, loading } = useOutputStore();
-  const statusLabel = latestResult?.status ?? (loading ? "running" : "idle");
+  const { activeTab, setActiveTab, latestResult, loading, error } =
+    useOutputStore();
 
   return (
     <div className="w-full h-full px-5 py-4 overflow-y-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
-          <span
-            className={`text-[11px] rounded-full px-2.5 py-0.5 border ${
-              loading
-                ? "border-[rgba(59,130,246,0.4)] bg-[rgba(59,130,246,0.15)] text-[#93c5fd]"
-                : latestResult
-                  ? "border-[rgba(16,185,129,0.35)] bg-[rgba(16,185,129,0.15)] text-[#34d399]"
-                  : "border-white/10 bg-white/5 text-white/40"
-            }`}
-          >
-            {statusLabel}
-          </span>
-          {loading && (
-            <span className="h-4 w-4 rounded-full border-2 border-white/10 border-t-[#7c3aed] animate-spin" />
-          )}
-        </div>
+        <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">
+          Execution Dashboard
+        </p>
         <div className="flex items-center gap-2">
           {tabs.map((tab) => (
             <button
@@ -605,8 +514,15 @@ export default function OutputPanel() {
         </div>
       </div>
       {activeTab === "results" && <ResultsTab />}
-      {activeTab === "code" && <CodeExportTab />}
+      {activeTab === "code" && (
+        <GeneratedCodePanel code={latestResult?.generated_code ?? ""} />
+      )}
       {activeTab === "compare" && <CompareRunsTab />}
+      {error && activeTab !== "results" && (
+        <div className="mt-4">
+          <ValidationErrorBanner />
+        </div>
+      )}
     </div>
   );
 }
