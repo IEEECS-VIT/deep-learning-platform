@@ -1,6 +1,7 @@
 def generate_dataset_code(config):
     dataset_name = config.get("dataset", "iris")
     data_dir = config.get("data_dir", "data")
+    max_samples = config.get("max_samples", 2000) if dataset_name in ["mnist", "fashion_mnist", "cifar10"] else None
 
     image_metadata = {
         "digits": (1, 8, 8),
@@ -19,6 +20,7 @@ def generate_dataset_code(config):
         loader_name = torchvision_loaders[dataset_name]
         channels, height, width = image_metadata[dataset_name]
         imports = {"from torchvision import datasets"}
+        
         code = [
             "# Load Dataset",
             f"dataset = datasets.{loader_name}(",
@@ -29,8 +31,21 @@ def generate_dataset_code(config):
             "X = dataset.data",
             "if hasattr(X, 'numpy'):",
             "    X = X.numpy()",
+        ]
+        if max_samples is not None:
+            code.append(f"X = X[:{max_samples}]")
+            
+        code.extend([
             "X = X.tolist()",
             "y = dataset.targets",
+            "if hasattr(y, 'numpy'):",
+            "    y = y.numpy()",
+        ])
+        
+        if max_samples is not None:
+            code.append(f"y = y[:{max_samples}]")
+            
+        code.extend([
             "if hasattr(y, 'tolist'):",
             "    y = y.tolist()",
             "data_format = 'image'",
@@ -38,7 +53,7 @@ def generate_dataset_code(config):
             f"image_height = {height}",
             f"image_width = {width}",
             ""
-        ]
+        ])
         return imports, code
 
     loaders = {

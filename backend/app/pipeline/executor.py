@@ -43,7 +43,14 @@ def run_pipeline(pipeline):
             raise PipelineError("NODE_EXECUTION_ERROR", str(e), node_id=node_id)
     final_node = order[-1]
     execution_time = round(time.time() - start_time, 4)
-    generated_code = generate_pipeline_code(pipeline)
+    try:
+        generated_code = generate_pipeline_code(pipeline)
+    except Exception as e:
+        raise PipelineError(
+            "CODE_GENERATION_ERROR",
+            f"Failed to generate pipeline code: {e}",
+            node_id=final_node,
+        )
     return {
         "status": "success",
         "execution_time": execution_time,

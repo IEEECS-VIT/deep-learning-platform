@@ -20,12 +20,37 @@ type ErrorShape = {
   node_type?: unknown;
   nodeId?: unknown;
   nodeType?: unknown;
+  status?: number;
+  isNetworkError?: boolean;
 };
 
 type BackendError = {
   message?: unknown;
   node_id?: unknown;
   node_type?: unknown;
+  type?: unknown;
+};
+
+const readMessage = (value: unknown): string | undefined => {
+  if (typeof value === "string" && value.trim()) return value;
+  return undefined;
+};
+
+const extractFromDetail = (detail: unknown): string | undefined => {
+  if (typeof detail === "string") return detail;
+  if (!detail || typeof detail !== "object") return undefined;
+
+  const typedDetail = detail as ErrorDetail;
+  const direct = readMessage(typedDetail.message);
+  if (direct) return direct;
+
+  if (typedDetail.error && typeof typedDetail.error === "object") {
+    const nested = typedDetail.error as BackendError;
+    const nestedMessage = readMessage(nested.message);
+    if (nestedMessage) return nestedMessage;
+  }
+
+  return undefined;
 };
 
 export const extractErrorMessage = (error: unknown): string => {
@@ -33,23 +58,26 @@ export const extractErrorMessage = (error: unknown): string => {
 
   if (error && typeof error === "object") {
     const typedError = error as ErrorShape;
-    if (typeof typedError.detail === "string") return typedError.detail;
+
+    if (typedError.isNetworkError) {
+      return "Cannot reach the backend API. Start the FastAPI server on port 8000.";
+    }
+
+    const directMessage = readMessage(typedError.message);
+    if (directMessage && directMessage !== "Internal Server Error") {
+      return directMessage;
+    }
+
+    const detailMessage = extractFromDetail(typedError.detail);
+    if (detailMessage) return detailMessage;
 
     if (typedError.error && typeof typedError.error === "object") {
       const backendError = typedError.error as BackendError;
-      if (typeof backendError.message === "string") return backendError.message;
+      const backendMessage = readMessage(backendError.message);
+      if (backendMessage) return backendMessage;
     }
 
-    if (typedError.detail && typeof typedError.detail === "object") {
-      const detail = typedError.detail as ErrorDetail;
-      if (typeof detail.message === "string") return detail.message;
-      if (detail.error && typeof detail.error === "object") {
-        const nested = detail.error as BackendError;
-        if (typeof nested.message === "string") return nested.message;
-      }
-    }
-
-    if (typeof typedError.message === "string") return typedError.message;
+    if (directMessage) return directMessage;
   }
 
   return "Unknown error";
@@ -59,19 +87,38 @@ export const extractErrorContext = (error: unknown): ErrorContext => {
   if (!error || typeof error !== "object") return {};
 
   const typedError = error as ErrorShape;
-  if (typedError.error && typeof typedError.error === "object") {
-    const backendError = typedError.error as BackendError;
-    const backendNodeId = typeof backendError.node_id === "string" ? backendError.node_id : undefined;
-    const backendNodeType = typeof backendError.node_type === "string" ? backendError.node_type : undefined;
-    if (backendNodeId || backendNodeType) return { nodeId: backendNodeId, nodeType: backendNodeType };
-  }
-  const directNodeId = typeof typedError.nodeId === "string" ? typedError.nodeId : undefined;
-  const directNodeType = typeof typedError.nodeType === "string" ? typedError.nodeType : undefined;
-  if (directNodeId || directNodeType) return { nodeId: directNodeId, nodeType: directNodeType };
 
-  const legacyNodeId = typeof typedError.node_id === "string" ? typedError.node_id : undefined;
-  const legacyNodeType = typeof typedError.node_type === "string" ? typedError.node_type : undefined;
-  if (legacyNodeId || legacyNodeType) return { nodeId: legacyNodeId, nodeType: legacyNodeType };
+  const fromBackendError = (backendError: BackendError): ErrorContext => {
+    const backendNodeId =
+      typeof backendError.node_id === "string" ? backendError.node_id : undefined;
+    const backendNodeType =
+      typeof backendError.node_type === "string" ? backendError.node_type : undefined;
+    if (backendNodeId || backendNodeType) {
+      return { nodeId: backendNodeId, nodeType: backendNodeType };
+    }
+    return {};
+  };
+
+  if (typedError.error && typeof typedError.error === "object") {
+    const context = fromBackendError(typedError.error as BackendError);
+    if (context.nodeId || context.nodeType) return context;
+  }
+
+  const directNodeId =
+    typeof typedError.nodeId === "string" ? typedError.nodeId : undefined;
+  const directNodeType =
+    typeof typedError.nodeType === "string" ? typedError.nodeType : undefined;
+  if (directNodeId || directNodeType) {
+    return { nodeId: directNodeId, nodeType: directNodeType };
+  }
+
+  const legacyNodeId =
+    typeof typedError.node_id === "string" ? typedError.node_id : undefined;
+  const legacyNodeType =
+    typeof typedError.node_type === "string" ? typedError.node_type : undefined;
+  if (legacyNodeId || legacyNodeType) {
+    return { nodeId: legacyNodeId, nodeType: legacyNodeType };
+  }
 
   if (typedError.detail && typeof typedError.detail === "object") {
     const detail = typedError.detail as ErrorDetail;
@@ -87,13 +134,13 @@ export const extractErrorContext = (error: unknown): ErrorContext => {
         : typeof detail.node_type === "string"
           ? detail.node_type
           : undefined;
-    if (detailNodeId || detailNodeType) return { nodeId: detailNodeId, nodeType: detailNodeType };
+    if (detailNodeId || detailNodeType) {
+      return { nodeId: detailNodeId, nodeType: detailNodeType };
+    }
 
     if (detail.error && typeof detail.error === "object") {
-      const nested = detail.error as BackendError;
-      const nestedNodeId = typeof nested.node_id === "string" ? nested.node_id : undefined;
-      const nestedNodeType = typeof nested.node_type === "string" ? nested.node_type : undefined;
-      if (nestedNodeId || nestedNodeType) return { nodeId: nestedNodeId, nodeType: nestedNodeType };
+      const context = fromBackendError(detail.error as BackendError);
+      if (context.nodeId || context.nodeType) return context;
     }
   }
 
@@ -119,8 +166,18 @@ export const parseErrorResponse = async (response: Response) => {
     }
   }
 
-  const message = extractErrorMessage(body ?? response.statusText);
+  let message = extractErrorMessage(body ?? { message: response.statusText });
+
+  if (
+    message === "Internal Server Error" &&
+    response.status >= 500 &&
+    !body
+  ) {
+    message =
+      "The backend returned an internal server error. Ensure Python dependencies are installed and the API server is running.";
+  }
+
   const context = extractErrorContext(body);
 
-  return { message, ...context, detail: body };
+  return { message, ...context, detail: body, status: response.status };
 };

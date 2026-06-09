@@ -37,7 +37,7 @@ export async function runPipeline(payload: PipelinePayload) {
       nodeId: parsed.nodeId,
       nodeType: parsed.nodeType,
       detail: parsed.detail,
-      status: response.status,
+      status: parsed.status ?? response.status,
     };
   }
 

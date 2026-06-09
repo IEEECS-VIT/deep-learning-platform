@@ -19,6 +19,7 @@ def train(input_data, config):
         "model_name": "linear_regression",
         "predictions": predictions.tolist(),
         "predictions_preview": predictions[:10].tolist(),
+        "y_test_preview": list(y_test[:10]),
         "metrics": {
             "mse": float(mse),
             "r2_score": float(r2)

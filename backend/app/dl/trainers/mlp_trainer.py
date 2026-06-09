@@ -1,4 +1,3 @@
-from networkx import config
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,6 +8,13 @@ from torch.utils.data import TensorDataset, DataLoader
 def train(input_data, config):
     X_train = torch.tensor(input_data["X_train"], dtype=torch.float32)
     X_test = torch.tensor(input_data["X_test"], dtype=torch.float32)
+    
+    if input_data.get("data_format") == "image" or X_train.ndim > 2:
+        if X_train.max() > 1.0:
+            scale_factor = 255.0 if X_train.max() > 16.0 else 16.0
+            X_train = X_train / scale_factor
+            X_test = X_test / scale_factor
+
     y_train = torch.tensor(input_data["y_train"], dtype=torch.long)
     y_test = torch.tensor(input_data["y_test"], dtype=torch.long)
 
@@ -72,6 +78,7 @@ def train(input_data, config):
         "model_name": "mlp",
         "predictions": predicted_classes.tolist(),
         "predictions_preview": predicted_classes[:10].tolist(),
+        "y_test_preview": y_test[:10].tolist(),
         "metrics": {
             "accuracy": float(accuracy),
             "loss": float(loss_history[-1])

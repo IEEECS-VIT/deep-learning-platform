@@ -15,8 +15,13 @@ export default function ValidationErrorBanner() {
     (errorNode?.data as { label?: string } | undefined)?.label ??
     errorNodeId ??
     "Unknown node";
-  const nodeTypeLabel =
-    errorNodeType ?? errorNode?.type ?? "unknown";
+  const nodeTypeLabel = errorNodeType ?? errorNode?.type ?? "unknown";
+
+  const title = errorNodeId
+    ? "Pipeline execution failed"
+    : error.toLowerCase().includes("backend")
+      ? "Backend connection error"
+      : "Pipeline error";
 
   return (
     <div className="rounded-xl border border-[rgba(239,68,68,0.35)] bg-[rgba(239,68,68,0.08)] px-4 py-3 space-y-2">
@@ -35,10 +40,8 @@ export default function ValidationErrorBanner() {
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-semibold text-[#f87171]">
-            Pipeline validation failed
-          </p>
-          <p className="text-[12px] text-[#fca5a5] mt-1">{error}</p>
+          <p className="text-[12px] font-semibold text-[#f87171]">{title}</p>
+          <p className="text-[12px] text-[#fca5a5] mt-1 break-words">{error}</p>
         </div>
       </div>
       {(errorNodeId || errorNodeType) && (

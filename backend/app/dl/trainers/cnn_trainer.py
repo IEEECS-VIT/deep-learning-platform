@@ -8,6 +8,10 @@ from app.dl.models.cnn import CNN
 
 def _prepare_image_tensor(values, image_channels):
     tensor = torch.tensor(values, dtype=torch.float32)
+    if tensor.max() > 1.0:
+        scale_factor = 255.0 if tensor.max() > 16.0 else 16.0
+        tensor = tensor / scale_factor
+
     if tensor.ndim == 3:
         return tensor.unsqueeze(1)
     if tensor.ndim == 4:
@@ -166,6 +170,7 @@ def train(input_data, config):
         "model_name": "cnn",
         "predictions": predicted_classes.tolist(),
         "predictions_preview": predicted_classes[:10].tolist(),
+        "y_test_preview": y_test[:10].tolist(),
         "metrics": {
             "accuracy": float(
                 accuracy

@@ -1,4 +1,9 @@
 import { create } from "zustand";
+import {
+  getDatasetName,
+  getModelType,
+  getTaskType,
+} from "@/lib/resultAnalytics";
 
 type MetricsMap = Record<string, number | string | null>;
 
@@ -7,15 +12,20 @@ type RunSummary = {
   task_type?: string;
 };
 
-type PipelineOutput = {
+export type PipelineOutput = {
   model_name?: string;
   predictions?: unknown[];
   predictions_preview?: unknown[];
+  y_test_preview?: number[];
   metrics?: MetricsMap;
   config_used?: Record<string, unknown>;
   training_summary?: Record<string, unknown>;
   loss_history?: number[];
   run_summary?: RunSummary;
+};
+
+export type RunMetadata = {
+  dataset?: string;
 };
 
 export type PipelineExecutionResult = {
@@ -28,16 +38,19 @@ export type PipelineExecutionResult = {
   };
   output?: PipelineOutput;
   generated_code?: string;
+  runMetadata?: RunMetadata;
 };
 
 export type SavedRun = {
   id: string;
   timestamp: string;
+  dataset: string;
   modelName: string;
   taskType: string;
   metrics: MetricsMap;
   configUsed: Record<string, unknown>;
   executionTime: number;
+  lossHistory?: number[];
 };
 
 type OutputTab = "results" | "code" | "compare";
@@ -53,11 +66,33 @@ interface OutputStore {
   selectedCompareIds: string[];
   startExecution: () => void;
   setExecutionResult: (result: PipelineExecutionResult) => void;
-  setExecutionError: (payload: { message: string; nodeId?: string | null; nodeType?: string | null }) => void;
+  setExecutionError: (payload: {
+    message: string;
+    nodeId?: string | null;
+    nodeType?: string | null;
+  }) => void;
   setActiveTab: (tab: OutputTab) => void;
   saveRun: (run: SavedRun) => void;
   toggleCompareRun: (id: string) => void;
 }
+
+export const buildSavedRun = (
+  result: PipelineExecutionResult,
+): SavedRun | null => {
+  const output = result.output;
+  if (!output) return null;
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    timestamp: new Date().toISOString(),
+    dataset: getDatasetName(output, result.runMetadata),
+    modelName: getModelType(output),
+    taskType: getTaskType(output),
+    metrics: output.metrics ?? {},
+    configUsed: output.config_used ?? {},
+    executionTime: result.execution_time ?? 0,
+    lossHistory: output.loss_history,
+  };
+};
 
 export const useOutputStore = create<OutputStore>((set) => ({
   latestResult: null,
@@ -74,39 +109,51 @@ export const useOutputStore = create<OutputStore>((set) => ({
       error: null,
       errorNodeId: null,
       errorNodeType: null,
-      latestResult: null,
       activeTab: "results",
     })),
-  setExecutionResult: (result) =>
-    set(() => ({
+  setExecutionResult: (result) => {
+    const run = buildSavedRun(result);
+    set((state) => ({
       latestResult: result,
       loading: false,
       error: null,
       errorNodeId: null,
       errorNodeType: null,
       activeTab: "results",
-    })),
+      savedRuns: run ? [run, ...state.savedRuns] : state.savedRuns,
+      selectedCompareIds: run
+        ? [run.id, ...state.selectedCompareIds.filter((id) => id !== run.id)].slice(
+            0,
+            3,
+          )
+        : state.selectedCompareIds,
+    }));
+  },
   setExecutionError: ({ message, nodeId, nodeType }) =>
     set(() => ({
       error: message,
       loading: false,
       errorNodeId: nodeId ?? null,
       errorNodeType: nodeType ?? null,
+      activeTab: "results",
     })),
   setActiveTab: (tab) => set(() => ({ activeTab: tab })),
   saveRun: (run) =>
     set((state) => ({
-      savedRuns: [run, ...state.savedRuns],
+      savedRuns: state.savedRuns.some((r) => r.id === run.id)
+        ? state.savedRuns
+        : [run, ...state.savedRuns],
     })),
   toggleCompareRun: (id) =>
     set((state) => {
       const alreadySelected = state.selectedCompareIds.includes(id);
       if (alreadySelected) {
-        return { selectedCompareIds: state.selectedCompareIds.filter((runId) => runId !== id) };
+        return {
+          selectedCompareIds: state.selectedCompareIds.filter(
+            (runId) => runId !== id,
+          ),
+        };
       }
-      if (state.selectedCompareIds.length < 2) {
-        return { selectedCompareIds: [...state.selectedCompareIds, id] };
-      }
-      return { selectedCompareIds: [state.selectedCompareIds[1], id] };
+      return { selectedCompareIds: [...state.selectedCompareIds, id] };
     }),
 }));
