@@ -27,6 +27,16 @@ NODE_REGISTRY = {
                 "data_dir": {
                     "type": "string",
                     "default": "data"
+                },
+                "max_samples": {
+                    "type": "integer",
+                    "label": "Max Samples",
+                    "default": 2000,
+                    "min": 100,
+                    "max": 60000,
+                    "visible_if": {
+                        "dataset": ["mnist", "fashion_mnist", "cifar10"]
+                    }
                 }
             }
         }

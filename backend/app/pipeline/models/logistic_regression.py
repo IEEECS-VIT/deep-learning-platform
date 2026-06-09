@@ -23,6 +23,7 @@ def train(input_data, config):
         "model_name": "logistic_regression",
         "predictions": predictions.tolist(),
         "predictions_preview": predictions[:10].tolist(),
+        "y_test_preview": list(y_test[:10]),
         "metrics": {
             "accuracy": float(accuracy)
         },

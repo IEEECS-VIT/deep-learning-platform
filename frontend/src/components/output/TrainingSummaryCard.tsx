@@ -1,13 +1,17 @@
 "use client";
+import {
+  getDatasetName,
+  getModelType,
+} from "@/lib/resultAnalytics";
+import type { PipelineOutput } from "@/store/outputStore";
 
 const SUMMARY_KEYS = [
+  { key: "model_type", label: "Model Type" },
+  { key: "dataset", label: "Dataset" },
   { key: "epochs", label: "Epochs" },
+  { key: "learning_rate", label: "Learning Rate" },
   { key: "batch_size", label: "Batch Size" },
   { key: "optimizer", label: "Optimizer" },
-  { key: "learning_rate", label: "Learning Rate" },
-  { key: "hidden_size", label: "Hidden Size" },
-  { key: "architecture", label: "Architecture" },
-  { key: "filters", label: "Filters" },
 ] as const;
 
 const formatValue = (value: unknown) => {
@@ -18,30 +22,42 @@ const formatValue = (value: unknown) => {
 };
 
 type TrainingSummaryCardProps = {
-  trainingSummary?: Record<string, unknown>;
-  configUsed?: Record<string, unknown>;
+  output?: PipelineOutput;
+  runMetadata?: { dataset?: string };
 };
 
 export default function TrainingSummaryCard({
-  trainingSummary,
-  configUsed,
+  output,
+  runMetadata,
 }: TrainingSummaryCardProps) {
-  const source = trainingSummary ?? configUsed ?? {};
-  const entries = SUMMARY_KEYS.filter(
-    ({ key }) => source[key] !== undefined && source[key] !== null,
-  );
+  const trainingSummary = output?.training_summary ?? {};
+  const configUsed = output?.config_used ?? {};
+  const source = { ...configUsed, ...trainingSummary };
+
+  const entries = SUMMARY_KEYS.map((item) => {
+    const { key, label } = item;
+    if (key === "model_type") {
+      return { key, label, value: getModelType(output) };
+    }
+    if (key === "dataset") {
+      return { key, label, value: getDatasetName(output, runMetadata) };
+    }
+    const value = source[key];
+    if (value === undefined || value === null) return null;
+    return { key, label, value };
+  }).filter(Boolean) as Array<{ key: string; label: string; value: unknown }>;
 
   if (!entries.length) {
     return (
       <div className="rounded-xl border border-white/5 bg-[#141419] px-4 py-3 text-[12px] text-white/40">
-        Training summary is not available for this run.
+        Training configuration will appear after a successful run.
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {entries.map(({ key, label }) => (
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      {entries.map(({ key, label, value }) => (
         <div
           key={key}
           className="bg-[#15151b] border border-white/5 rounded-xl px-4 py-3 flex flex-col gap-1"
@@ -50,7 +66,7 @@ export default function TrainingSummaryCard({
             {label}
           </span>
           <span className="text-[16px] font-semibold text-white capitalize">
-            {formatValue(source[key])}
+            {formatValue(value)}
           </span>
         </div>
       ))}

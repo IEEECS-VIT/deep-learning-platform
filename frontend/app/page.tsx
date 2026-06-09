@@ -8,7 +8,7 @@ import { runPipeline, getNodes } from "@/lib/api";
 import { extractErrorContext, extractErrorMessage } from "@/lib/errors";
 import ConfigPanel from "@/components/ConfigPanel";
 import OutputPanel from "@/components/output/OutputPanel";
-import { useOutputStore } from "@/store/outputStore";
+import { useOutputStore, buildSavedRun } from "@/store/outputStore";
 import { useToastStore } from "@/store/toastStore";
 import type { NodeMetadataEntry } from "@/lib/configSchema";
 
@@ -129,14 +129,25 @@ export default function Home() {
         })),
         edges: edges.map((e) => ({ source: e.source, target: e.target })),
       };
+      const datasetNode = nodes.find((n) => n.type === "dataset");
+      const dataset =
+        ((datasetNode?.data as { config?: Record<string, unknown> } | undefined)
+          ?.config?.dataset as string | undefined) ?? undefined;
       const res = await runPipeline(payload);
-      setExecutionResult(res);
+      setExecutionResult({ ...res, runMetadata: { dataset } });
       setErrorNodeId(null);
       addToast("Pipeline executed successfully!");
     } catch (e: unknown) {
       const errorMessage = extractErrorMessage(e);
       const { nodeId, nodeType } = extractErrorContext(e);
-      setExecutionError({ message: errorMessage, nodeId, nodeType });
+      const resolvedNodeType =
+        nodeType ??
+        (nodeId ? nodes.find((n) => n.id === nodeId)?.type : undefined);
+      setExecutionError({
+        message: errorMessage,
+        nodeId,
+        nodeType: resolvedNodeType,
+      });
       if (nodeId) {
         setErrorNodeId(nodeId);
         setSelectedNode(nodeId);
@@ -192,20 +203,6 @@ export default function Home() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleDelete, selectedEdgeId, selectedNodeId]);
-
-  const buildSavedRun = (result: any) => {
-    const output = result.output;
-    if (!output) return null;
-    return {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      timestamp: new Date().toISOString(),
-      modelName: output.model_name ?? output.run_summary?.model ?? "unknown",
-      taskType: output.run_summary?.task_type ?? "unknown",
-      metrics: output.metrics ?? {},
-      configUsed: output.config_used ?? {},
-      executionTime: result.execution_time ?? 0,
-    };
-  };
 
   const handleSaveRun = () => {
     if (latestResult) {

@@ -37,3 +37,16 @@ build/
 
 # Misc
 *.sqlite3
+
+# ML datasets
+backend/data/
+
+# Model artifacts
+*.pth
+*.pt
+*.ckpt
+
+# Experiment outputs
+outputs/
+logs/
+checkpoints/

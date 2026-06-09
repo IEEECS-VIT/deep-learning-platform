@@ -9,6 +9,7 @@ from sklearn.datasets import (
     load_digits,
 )
 from torchvision import datasets
+import torchvision.transforms as T
 
 
 DEFAULT_DATA_DIR = os.getenv("DLP_DATA_DIR", "data")
@@ -78,7 +79,7 @@ def _image_metadata(dataset_info):
     }
 
 
-def _load_torchvision_dataset(dataset_info, data_dir):
+def _load_torchvision_dataset(dataset_info, data_dir, max_samples=None):
     dataset = dataset_info["loader"](
         root=data_dir,
         train=True,
@@ -89,16 +90,30 @@ def _load_torchvision_dataset(dataset_info, data_dir):
         X = dataset.data
         if hasattr(X, "numpy"):
             X = X.numpy()
+        if max_samples is not None:
+            X = X[:max_samples]
         X = X.tolist()
     else:
-        X = [image for image, _ in dataset]
+        # Convert PIL images to tensors (C, H, W) normalized to [0, 1]
+        transform = T.ToTensor()
+        X = [transform(image).numpy() for image, _ in dataset]
+        if max_samples is not None:
+            X = X[:max_samples]
 
     if hasattr(dataset, "targets"):
         y = dataset.targets
+        if hasattr(y, "numpy"):
+            y = y.numpy()
+        if max_samples is not None:
+            y = y[:max_samples]
         if hasattr(y, "tolist"):
             y = y.tolist()
+        elif isinstance(y, list) is False:
+            y = list(y)
     else:
         y = [target for _, target in dataset]
+        if max_samples is not None:
+            y = y[:max_samples]
 
     return X, y
 
@@ -126,7 +141,8 @@ def run(input_data, config):
 
     if dataset_info.get("data_format") == "image":
         data_dir = config.get("data_dir", DEFAULT_DATA_DIR)
-        X, y = _load_torchvision_dataset(dataset_info, data_dir)
+        max_samples = config.get("max_samples", 2000) if dataset_name in ["mnist", "fashion_mnist", "cifar10"] else None
+        X, y = _load_torchvision_dataset(dataset_info, data_dir, max_samples=max_samples)
         return {
             "X": X,
             "y": y,
