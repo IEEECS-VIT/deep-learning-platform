@@ -11,6 +11,11 @@ import OutputPanel from "@/components/output/OutputPanel";
 import { useOutputStore, buildSavedRun } from "@/store/outputStore";
 import { useToastStore } from "@/store/toastStore";
 import type { NodeMetadataEntry } from "@/lib/configSchema";
+import RunsPanel from "@/components/RunsPanel";
+import HistoryPanel from "@/components/HistoryPanel";
+import SettingsPanel from "@/components/SettingsPanel";
+
+
 
 const SIDEBAR_WIDTH = 260;
 const MIN_CONFIG = 240;
@@ -19,6 +24,7 @@ const MIN_OUTPUT = 120;
 const MAX_OUTPUT = 1200;
 
 export default function Home() {
+  const [activePanel, setActivePanel] = useState<string | null>("Nodes");
   const {
     nodes,
     edges,
@@ -160,7 +166,10 @@ export default function Home() {
   useEffect(() => {
     const fetchNodeMetadata = async () => {
       try {
-        const metadata = (await getNodes()) as Record<string, NodeMetadataEntry>;
+        const metadata = (await getNodes()) as Record<
+          string,
+          NodeMetadataEntry
+        >;
         setLocalNodeMetadata(metadata);
         setNodeMetadata(metadata);
       } catch (error) {
@@ -397,19 +406,13 @@ export default function Home() {
                 </>
               ),
             },
-            {
-              label: "Flows",
-              svg: (
-                <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-              ),
-            },
             { label: "Runs", svg: <polygon points="5 3 19 12 5 21 5 3" /> },
             {
               label: "History",
               svg: (
                 <>
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
                 </>
               ),
             },
@@ -425,9 +428,17 @@ export default function Home() {
           ].map((item, i) => (
             <button
               key={item.label}
-              onClick={i === 0 ? () => setSidebarOpen((v) => !v) : undefined}
+                onClick={() => {
+                  if (activePanel === item.label && sidebarOpen) {
+                    setSidebarOpen(false);
+                    setActivePanel(null);
+                  } else {
+                    setActivePanel(item.label);
+                    setSidebarOpen(true);
+                  }
+                }}
               className={`w-11 py-2 rounded-lg border-0 flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-                i === 0 && sidebarOpen
+                sidebarOpen && activePanel === item.label
                   ? "bg-violet-500/10 text-violet-400"
                   : "bg-transparent text-white/30 hover:text-white/55"
               }`}
@@ -474,13 +485,17 @@ export default function Home() {
             </button>
           </div>
           <div
-            className="flex-1 overflow-hidden opacity-0 transition-opacity duration-300"
+            className="flex-1 overflow-hidden"
             style={{
               opacity: sidebarOpen ? 1 : 0,
+              transition: "opacity 0.15s",
               pointerEvents: sidebarOpen ? "auto" : "none",
             }}
           >
-            <Sidebar nodeMetadata={nodeMetadata} />
+            {activePanel === "Nodes" && <Sidebar nodeMetadata={nodeMetadata} />}
+            {activePanel === "Runs" && <RunsPanel />}
+            {activePanel === "History" && <HistoryPanel />}
+            {activePanel === "Settings" && <SettingsPanel />}
           </div>
         </div>
 
