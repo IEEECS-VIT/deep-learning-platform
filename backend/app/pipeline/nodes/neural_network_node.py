@@ -1,13 +1,8 @@
-from app.dl.trainers import mlp_trainer, cnn_trainer
-
-NETWORK_REGISTRY = {
-    "mlp": mlp_trainer.train,
-    "cnn": cnn_trainer.train
-}
+from app.services.modal_service import run_mlp, run_cnn
 
 def run(input_data, config):
     architecture = config.get("architecture", "mlp")
-    if architecture not in NETWORK_REGISTRY:
+    if architecture not in {"mlp", "cnn"}:
         raise ValueError(
             f"Unknown architecture: {architecture}"
         )
@@ -27,9 +22,9 @@ def run(input_data, config):
     if optimizer not in {"adam", "sgd"}:
         raise ValueError("optimizer must be one of: adam, sgd")
 
-    if architecture == "cnn" and input_data.get("data_format") != "image":
-        raise ValueError("CNN architecture requires an image dataset")
     if architecture == "cnn":
+        if input_data.get("data_format") != "image":
+            raise ValueError("CNN architecture requires an image dataset")
         filters = config.get("filters", 32)
         kernel_size = config.get("kernel_size", 3)
         dropout = config.get("dropout", 0.2)
@@ -38,10 +33,6 @@ def run(input_data, config):
         if kernel_size <= 0:
             raise ValueError("kernel_size must be greater than 0")
         if dropout < 0 or dropout > 1:
-            raise ValueError("dropout must be between 0 and 1")
-
-    trainer = NETWORK_REGISTRY[architecture]
-    return trainer(
-        input_data,
-        config
-    )
+            raise ValueError( "dropout must be between 0 and 1")
+        return run_cnn(input_data, config)
+    return run_mlp(input_data, config)
