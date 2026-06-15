@@ -14,7 +14,9 @@ def run(input_data, config):
         "X_test": X_test,
         "y_train": y_train,
         "y_test": y_test,
-        "task_type": input_data["task_type"]
+        "task_type": input_data["task_type"],
+        "split_test_size": test_size,
+        "split_random_state": random_state
     }
 
     for key in [
