@@ -51,16 +51,16 @@ def _image_metadata(dataset_info):
 
 def run(input_data, config):
     dataset_name = config.get("dataset", "iris")
-    
-    if dataset_name not in DATASET_REGISTRY:
-        raise ValueError(f"Unknown dataset '{dataset_name}'")
-    
     if dataset_name == "mnist":
         return get_mnist(config.get("max_samples", 2000))
     if dataset_name == "fashion_mnist":
         return get_fashion_mnist(config.get("max_samples", 2000))
     if dataset_name == "cifar10":
         return get_cifar10(config.get("max_samples", 2000))
+    if dataset_name not in DATASET_REGISTRY:
+        raise ValueError(f"Unknown dataset '{dataset_name}'")
+
+    dataset_info = DATASET_REGISTRY[dataset_name]
     
     dataset_info = DATASET_REGISTRY[dataset_name]
     dataset_loader = dataset_info["loader"]
