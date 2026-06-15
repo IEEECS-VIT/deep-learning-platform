@@ -31,63 +31,20 @@ def train(input_data, config):
 
     X_train = _prepare_image_tensor(input_data["X_train"], image_channels)
     X_test = _prepare_image_tensor(input_data["X_test"], image_channels)
+    y_train = torch.tensor(input_data["y_train"], dtype=torch.long)
+    y_test = torch.tensor(input_data["y_test"], dtype=torch.long)
 
-    y_train = torch.tensor(
-        input_data["y_train"],
-        dtype=torch.long
-    )
+    epochs = config.get("epochs", 10)
+    learning_rate = config.get("learning_rate", 0.001)
+    batch_size = config.get("batch_size", 32)
+    hidden_size = config.get("hidden_size", 128)
+    filters = config.get("filters", 32)
+    kernel_size = config.get("kernel_size", 3)
+    dropout = config.get("dropout", 0.2)
+    optimizer_name = config.get("optimizer", "adam")
 
-    y_test = torch.tensor(
-        input_data["y_test"],
-        dtype=torch.long
-    )
-
-    epochs = config.get(
-        "epochs",
-        10
-    )
-
-    learning_rate = config.get(
-        "learning_rate",
-        0.001
-    )
-
-    batch_size = config.get(
-        "batch_size",
-        32
-    )
-    hidden_size = config.get(
-        "hidden_size",
-        128
-    )
-    filters = config.get(
-        "filters",
-        32
-    )
-    kernel_size = config.get(
-        "kernel_size",
-        3
-    )
-    dropout = config.get(
-        "dropout",
-        0.2
-    )
-    optimizer_name = config.get(
-        "optimizer",
-        "adam"
-    )
-
-    train_dataset = TensorDataset(
-        X_train,
-        y_train
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True
-    )
-
+    train_dataset = TensorDataset(X_train, y_train)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     model = CNN(
         num_classes=len(
             set(
@@ -119,46 +76,21 @@ def train(input_data, config):
         raise ValueError(f"Unknown optimizer: {optimizer_name}")
 
     loss_history = []
-
     for _ in range(epochs):
-
         epoch_loss = 0.0
-
         for batch_X, batch_y in train_loader:
-
             optimizer.zero_grad()
-
-            outputs = model(
-                batch_X
-            )
-
-            loss = criterion(
-                outputs,
-                batch_y
-            )
-
+            outputs = model(batch_X)
+            loss = criterion(outputs,batch_y)
             loss.backward()
-
             optimizer.step()
-
             epoch_loss += loss.item()
-
-        loss_history.append(
-            epoch_loss / len(train_loader)
-        )
-
+        loss_history.append(epoch_loss / len(train_loader))
     with torch.no_grad():
-
-        predictions = model(
-            X_test
-        )
-
+        predictions = model(X_test)
         predicted_classes = (
-            predictions.argmax(
-                dim=1
-            )
+            predictions.argmax(dim=1)
         )
-
     final_loss = loss_history[-1]
     best_loss = min(loss_history)
     accuracy = accuracy_score(

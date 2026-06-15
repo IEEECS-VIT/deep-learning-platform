@@ -11,7 +11,6 @@ def generate_pipeline_code(pipeline):
         config = node.get("config", {})
 
         generator = CODE_GENERATOR_REGISTRY.get(node_type)
-
         if not generator:
             continue
 

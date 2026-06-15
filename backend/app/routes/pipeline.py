@@ -3,33 +3,22 @@ from app.pipeline.executor import run_pipeline
 from app.pipeline.schemas import Pipeline
 from app.pipeline.error_handler import PipelineError
 from app.pipeline.registry.node_registry import NODE_REGISTRY
-
+import traceback
 router = APIRouter()
+import traceback
 
 @router.post("/run_pipeline")
 def execute_pipeline(pipeline: Pipeline):
     try:
         results = run_pipeline(pipeline.model_dump())
-        return{
+        return {
             "results": results
         }
-    except PipelineError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=e.to_dict()
-        )
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "status": "error",
-                "error": {
-                    "type": "INTERNAL_SERVER_ERROR",
-                    "message": str(e)
-                }
-            }
-        )
+        import traceback
+        traceback.print_exc()
+        raise
         
 @router.get("/nodes")
 def get_nodes():
