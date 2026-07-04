@@ -7,6 +7,7 @@ import {
   MiniMap,
   BackgroundVariant,
   Panel,
+  useReactFlow,
   type Node,
   type Edge,
   ConnectionLineType,
@@ -15,40 +16,7 @@ import "@xyflow/react/dist/style.css";
 import { usePipelineStore } from "@/store/pipelineStore";
 import BasePipelineNode from "./nodes/BasePipelineNode";
 import TrashBin from "./TrashBin";
-
-type Settings = {
-  apiUrl: string;
-  canvasBackground: "dots" | "lines" | "none";
-  animateEdges: boolean;
-  snapToGrid: boolean;
-  snapGrid: number;
-  minimap: boolean;
-  connectionLineStyle: "bezier" | "straight" | "step";
-  autoSaveInterval: number;
-  showNodeLabels: boolean;
-  defaultZoom: number;
-};
-
-const defaultSettings: Settings = {
-  apiUrl: "http://localhost:8000",
-  canvasBackground: "dots",
-  animateEdges: false,
-  snapToGrid: false,
-  snapGrid: 15,
-  minimap: true,
-  connectionLineStyle: "bezier",
-  autoSaveInterval: 0,
-  showNodeLabels: true,
-  defaultZoom: 1,
-};
-
-const loadSettings = (): Settings => {
-  try {
-    return { ...defaultSettings, ...JSON.parse(localStorage.getItem("ml_settings") ?? "{}") };
-  } catch {
-    return defaultSettings;
-  }
-};
+import { useSettingsStore } from "@/store/settingsStore";
 
 const bgVariantMap = {
   dots: BackgroundVariant.Dots,
@@ -62,32 +30,50 @@ const connLineMap: Record<string, ConnectionLineType> = {
   step: ConnectionLineType.Step,
 };
 
-export default function Canvas() {
-  const {
-    nodes, edges, nodeMetadata,
-    onNodesChange, onEdgesChange, onConnect,
-    addNode, setSelectedNode, setSelectedEdge,
-    deleteNode, deleteEdge, onNodeDragStop,
-  } = usePipelineStore();
-
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+function CanvasViewportSync({ zoom }: { zoom: number }) {
+  const { zoomTo } = useReactFlow();
 
   useEffect(() => {
-    setSettings(loadSettings());
-    const onStorage = () => setSettings(loadSettings());
-    window.addEventListener("storage", onStorage);
-    // Poll for changes from same tab
-    const interval = setInterval(() => setSettings(loadSettings()), 1000);
-    return () => { window.removeEventListener("storage", onStorage); clearInterval(interval); };
-  }, []);
+    zoomTo(zoom, { duration: 150 });
+  }, [zoom, zoomTo]);
+
+  return null;
+}
+
+export default function Canvas() {
+  const {
+    nodes,
+    edges,
+    nodeMetadata,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    addNode,
+    setSelectedNode,
+    setSelectedEdge,
+    deleteNode,
+    deleteEdge,
+    onNodeDragStop,
+  } = usePipelineStore();
+
+  const settings = useSettingsStore((state) => state.settings);
 
   const nodeTypes = useMemo(() => {
     const types: Record<string, typeof BasePipelineNode> = {};
     const knownTypes = Object.keys(nodeMetadata);
-    const typesToRegister = knownTypes.length > 0
-      ? knownTypes
-      : ["dataset", "train_test_split", "preprocess", "model", "neural_network"];
-    typesToRegister.forEach((type) => { types[type] = BasePipelineNode; });
+    const typesToRegister =
+      knownTypes.length > 0
+        ? knownTypes
+        : [
+            "dataset",
+            "train_test_split",
+            "preprocess",
+            "model",
+            "neural_network",
+          ];
+    typesToRegister.forEach((type) => {
+      types[type] = BasePipelineNode;
+    });
     return types;
   }, [nodeMetadata]);
 
@@ -103,21 +89,33 @@ export default function Canvas() {
     e.dataTransfer.dropEffect = "move";
   }, []);
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const type = e.dataTransfer.getData("nodeType");
-    if (!type) return;
-    const bounds = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    addNode(type, { x: e.clientX - bounds.left - 80, y: e.clientY - bounds.top - 40 });
-  }, [addNode]);
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData("nodeType");
+      if (!type) return;
+      const bounds = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      addNode(type, {
+        x: e.clientX - bounds.left - 80,
+        y: e.clientY - bounds.top - 40,
+      });
+    },
+    [addNode],
+  );
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelectedNode(node.id);
-  }, [setSelectedNode]);
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNode(node.id);
+    },
+    [setSelectedNode],
+  );
 
-  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-    setSelectedEdge(edge.id);
-  }, [setSelectedEdge]);
+  const onEdgeClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      setSelectedEdge(edge.id);
+    },
+    [setSelectedEdge],
+  );
 
   const handleNodeDragStart = useCallback((_: React.MouseEvent, node: Node) => {
     dragStartPosition.current = { x: node.position.x, y: node.position.y };
@@ -127,41 +125,75 @@ export default function Canvas() {
   const handleNodeDrag = useCallback((e: React.MouseEvent) => {
     if (!canvasRef.current) return;
     const canvasBounds = canvasRef.current.getBoundingClientRect();
-    const nearBottom = e.clientY >= canvasBounds.bottom - canvasBounds.height * 0.3;
+    const nearBottom =
+      e.clientY >= canvasBounds.bottom - canvasBounds.height * 0.3;
     setIsDragging(nearBottom);
-    if (!trashRef.current || !nearBottom) { setIsOverTrash(false); return; }
+    if (!trashRef.current || !nearBottom) {
+      setIsOverTrash(false);
+      return;
+    }
     const trash = trashRef.current.getBoundingClientRect();
     const padding = 40;
     setIsOverTrash(
-      e.clientX >= trash.left - padding && e.clientX <= trash.right + padding &&
-      e.clientY >= trash.top - padding && e.clientY <= trash.bottom + padding,
+      e.clientX >= trash.left - padding &&
+        e.clientX <= trash.right + padding &&
+        e.clientY >= trash.top - padding &&
+        e.clientY <= trash.bottom + padding,
     );
   }, []);
 
-  const handleNodeDragStop = useCallback((_: React.MouseEvent, node: Node) => {
-    if (isOverTrash && draggingNodeId.current) {
-      deleteNode(draggingNodeId.current);
-    } else if (dragStartPosition.current) {
-      onNodeDragStop(node, dragStartPosition.current);
-    }
-    dragStartPosition.current = null;
-    draggingNodeId.current = null;
-    setIsDragging(false);
-    setIsOverTrash(false);
-  }, [isOverTrash, deleteNode, onNodeDragStop]);
+  const handleNodeDragStop = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (isOverTrash && draggingNodeId.current) {
+        deleteNode(draggingNodeId.current);
+      } else if (dragStartPosition.current) {
+        onNodeDragStop(node, dragStartPosition.current);
+      }
+      dragStartPosition.current = null;
+      draggingNodeId.current = null;
+      setIsDragging(false);
+      setIsOverTrash(false);
+    },
+    [isOverTrash, deleteNode, onNodeDragStop],
+  );
 
   const bgVariant = bgVariantMap[settings.canvasBackground];
 
-  const edgeOptions = useMemo(() => ({
-    animated: settings.animateEdges,
-    style: { stroke: "rgba(255,255,255,0.2)", strokeWidth: 1.5 },
-  }), [settings.animateEdges]);
+  const renderedEdges = useMemo(
+    () =>
+      edges.map((edge) => ({
+        ...edge,
+        animated: settings.animateEdges,
+        style: {
+          stroke: "rgba(255,255,255,0.2)",
+          strokeWidth: settings.edgeWidth,
+          ...(edge.style ?? {}),
+        },
+      })),
+    [edges, settings.animateEdges, settings.edgeWidth],
+  );
+
+  const edgeOptions = useMemo(
+    () => ({
+      animated: settings.animateEdges,
+      style: {
+        stroke: "rgba(255,255,255,0.2)",
+        strokeWidth: settings.edgeWidth,
+      },
+    }),
+    [settings.animateEdges, settings.edgeWidth],
+  );
 
   return (
-    <div ref={canvasRef} className="w-full h-full bg-[#0d0d0f]" onDragOver={onDragOver} onDrop={onDrop}>
+    <div
+      ref={canvasRef}
+      className="w-full h-full bg-[#0d0d0f]"
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={renderedEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -177,26 +209,43 @@ export default function Canvas() {
         snapGrid={[settings.snapGrid, settings.snapGrid]}
         connectionLineType={connLineMap[settings.connectionLineStyle]}
         defaultEdgeOptions={edgeOptions}
+        defaultViewport={{ x: 0, y: 0, zoom: settings.defaultZoom }}
         style={{ background: "#0d0d0f" }}
+        proOptions={{ hideAttribution: true }}
       >
+        <CanvasViewportSync zoom={settings.defaultZoom} />
         {bgVariant && (
-          <Background
-            variant={bgVariant}
-            gap={20}
-            size={1.5}
-            color="#2a2a35"
+          <Background variant={bgVariant} gap={20} size={1.5} color="#2a2a35" />
+        )}
+        {settings.showControls && (
+          <Controls
+            style={{
+              background: "#1a1a1f",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              overflow: "hidden",
+            }}
           />
         )}
-        <Controls style={{ background: "#1a1a1f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }} />
         {settings.minimap && (
           <MiniMap
-            style={{ background: "#1a1a1f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, height: 100, width: 150 }}
+            style={{
+              background: "#1a1a1f",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              height: 100,
+              width: 150,
+            }}
             nodeColor="#444"
             maskColor="rgba(0,0,0,0.5)"
           />
         )}
         <Panel position="bottom-center">
-          <TrashBin ref={trashRef} isDragging={isDragging} isOverTrash={isOverTrash} />
+          <TrashBin
+            ref={trashRef}
+            isDragging={isDragging}
+            isOverTrash={isOverTrash}
+          />
         </Panel>
       </ReactFlow>
     </div>

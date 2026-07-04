@@ -1,6 +1,7 @@
 "use client";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { getNodePresentation, getConfigSummary } from "@/lib/nodePresentation";
+import { useSettingsStore } from "@/store/settingsStore";
 
 type PipelineNodeData = {
   label?: string;
@@ -13,6 +14,12 @@ export default function BasePipelineNode({ type, data }: NodeProps) {
   const nodeData = (data ?? {}) as PipelineNodeData;
   const presentation = getNodePresentation(nodeType);
   const summary = getConfigSummary(nodeType, nodeData.config ?? {});
+  const showNodeLabels = useSettingsStore(
+    (state) => state.settings.showNodeLabels,
+  );
+  const showNodeSummaries = useSettingsStore(
+    (state) => state.settings.showNodeSummaries,
+  );
   const hasError = Boolean(nodeData.hasError);
   const hasInputs = nodeType !== "dataset";
   const hasOutputs = nodeType !== "model" && nodeType !== "neural_network";
@@ -41,7 +48,9 @@ export default function BasePipelineNode({ type, data }: NodeProps) {
           }}
         />
       )}
-      <div className="flex items-center gap-2 mb-[6px]">
+      <div
+        className={`flex items-center gap-2 ${showNodeLabels ? "mb-[6px]" : "justify-center"}`}
+      >
         <div
           className="w-[26px] h-[26px] rounded-[8px] flex items-center justify-center text-[12px] font-semibold"
           style={{
@@ -51,18 +60,27 @@ export default function BasePipelineNode({ type, data }: NodeProps) {
         >
           {presentation.icon === "neural" ? "NN" : presentation.label.charAt(0)}
         </div>
-        <span
-          className="text-[13px] font-semibold truncate"
-          style={{ color: presentation.color }}
-        >
-          {presentation.label}
-        </span>
+        {showNodeLabels && (
+          <span
+            className="text-[13px] font-semibold truncate"
+            style={{ color: presentation.color }}
+          >
+            {presentation.label}
+          </span>
+        )}
       </div>
-      <p className="text-[11px] m-0 truncate" style={{ color: `${presentation.color}99` }}>
-        {summary ?? presentation.desc}
-      </p>
+      {showNodeSummaries && (
+        <p
+          className="text-[11px] m-0 truncate"
+          style={{ color: `${presentation.color}99` }}
+        >
+          {summary ?? presentation.desc}
+        </p>
+      )}
       {hasError && (
-        <p className="text-[10px] text-red-400 mt-1.5 m-0 font-medium">Validation error</p>
+        <p className="text-[10px] text-red-400 mt-1.5 m-0 font-medium">
+          Validation error
+        </p>
       )}
       {hasOutputs && (
         <Handle
