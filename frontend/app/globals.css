@@ -13,6 +13,34 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #141419;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #141419;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #a855f7 0%, #7c3aed 100%);
+  border: 2px solid #141419;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #c084fc 0%, #8b5cf6 100%);
+}
+
+*::-webkit-scrollbar-corner {
+  background: #141419;
+}
+
 .react-flow__node {
   padding: 0 !important;
   border: none !important;

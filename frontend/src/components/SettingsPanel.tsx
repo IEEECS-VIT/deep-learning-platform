@@ -239,12 +239,6 @@ export default function SettingsPanel() {
           Reset
         </button>
       </Row>
-
-      <SectionLabel>About</SectionLabel>
-      <div className="px-3 py-3 mb-4 flex flex-col gap-1">
-        <p className="text-[10px] text-white/25">ML Workflow Builder · v0.6</p>
-        <p className="text-[10px] text-white/20">Visual ML pipeline editor</p>
-      </div>
     </div>
   );
 }
