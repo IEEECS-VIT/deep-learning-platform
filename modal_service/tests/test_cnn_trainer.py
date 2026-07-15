@@ -1,7 +1,7 @@
-from app.dl.trainers.cnn_trainer import train
+from modal_service.trainers.cnn_trainer import train
 
 
-def test_cnn_training_returns_mlp_shaped_output():
+def test_cnn_training_returns_shaped_output():
     input_data = {
         "X_train": [
             [[0.0] * 8 for _ in range(8)],

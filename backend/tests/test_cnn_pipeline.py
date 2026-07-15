@@ -1,5 +1,4 @@
 import pytest
-import torch
 
 from app.pipeline.error_handler import PipelineError
 from app.pipeline.executor import run_pipeline
@@ -9,38 +8,38 @@ from app.pipeline.nodes import dataset_node
 from app.pipeline.nodes.dataset_node import run as run_dataset
 
 
-class FakeTorchvisionDataset:
-    def __init__(self, root, train=True, download=True, data_shape=(8, 28, 28)):
-        self.root = root
-        self.train = train
-        self.download = download
-        self.data = torch.arange(
-            int(torch.tensor(data_shape).prod())
-        ).reshape(data_shape)
-        self.targets = [index % 2 for index in range(data_shape[0])]
+def _make_mock_image_data(dataset_name, data_shape):
+    channels = data_shape[3] if len(data_shape) == 4 else 1
+    height = data_shape[1]
+    width = data_shape[2]
+    num_samples = data_shape[0]
+
+    if len(data_shape) == 4:
+        X = [[[[float((i + r + c + ch) % 255) for ch in range(channels)]
+               for c in range(width)]
+              for r in range(height)]
+             for i in range(num_samples)]
+    else:
+        X = [[[float((i + r + c) % 255) for c in range(width)]
+              for r in range(height)]
+             for i in range(num_samples)]
+
+    return {
+        "X": X,
+        "y": [index % 2 for index in range(num_samples)],
+        "dataset_name": dataset_name,
+        "task_type": "classification",
+        "data_format": "image",
+        "image_channels": channels,
+        "image_height": height,
+        "image_width": width,
+    }
 
 
 def patch_torchvision_dataset(monkeypatch, dataset_name, data_shape):
-    class PatchedDataset(FakeTorchvisionDataset):
-        def __init__(self, root, train=True, download=True):
-            super().__init__(
-                root=root,
-                train=train,
-                download=download,
-                data_shape=data_shape
-            )
-
-    loader_name = {
-        "mnist": "MNIST",
-        "fashion_mnist": "FashionMNIST",
-        "cifar10": "CIFAR10",
-    }[dataset_name]
-    monkeypatch.setattr(dataset_node.datasets, loader_name, PatchedDataset)
-    monkeypatch.setitem(
-        dataset_node.DATASET_REGISTRY[dataset_name],
-        "loader",
-        PatchedDataset
-    )
+    mock_data = _make_mock_image_data(dataset_name, data_shape)
+    func_name = f"get_{dataset_name}"
+    monkeypatch.setattr(dataset_node, func_name, lambda max_samples=2000: mock_data)
 
 
 def test_digits_dataset_returns_images_with_metadata():
@@ -82,7 +81,6 @@ def test_torchvision_image_datasets_return_metadata(
     assert result["image_channels"] == channels
     assert result["image_height"] == height
     assert result["image_width"] == width
-    assert result["data_dir"] == "/tmp/dlp-data"
     assert len(result["X"]) == data_shape[0]
 
 
