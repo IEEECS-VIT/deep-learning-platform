@@ -161,11 +161,7 @@ This enables:
 
 ---
 
-<<<<<<< HEAD
 ## Testing
-=======
-## Testing (If Applicable)
->>>>>>> 5c34cd2 (Update README)
 
 Backend tests (pytest):
 
@@ -178,8 +174,4 @@ uv run pytest
 
 ## Project Status
 
-<<<<<<< HEAD
 - 🟢 In Development
-=======
-- 🟢 In Development
->>>>>>> 5c34cd2 (Update README)
