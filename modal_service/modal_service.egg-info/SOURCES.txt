@@ -1,0 +1,12 @@
+pyproject.toml
+setup.py
+modal_service.egg-info/PKG-INFO
+modal_service.egg-info/SOURCES.txt
+modal_service.egg-info/dependency_links.txt
+modal_service.egg-info/top_level.txt
+tests/__init__.py
+tests/test_cnn_trainer.py
+tests/test_mlp_trainer.py
+trainers/__init__.py
+trainers/cnn_trainer.py
+trainers/mlp_trainer.py

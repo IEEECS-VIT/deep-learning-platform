@@ -10,19 +10,23 @@ image = (
         "scikit-learn",
         "numpy"
     )
-    .add_local_python_source("modal_service")
+    .add_local_dir(".", remote_path="/root/modal_service")
 )
 
 
 @app.function(image=image, cpu=2)
 def train_mlp(input_data, config):
-    from modal_service.trainers.mlp_trainer import train
+    import sys
+    sys.path.insert(0, "/root/modal_service")
+    from trainers.mlp_trainer import train
     return train(input_data, config)
 
 
 @app.function(image=image, cpu=2)
 def train_cnn(input_data, config):
-    from modal_service.trainers.cnn_trainer import train
+    import sys
+    sys.path.insert(0, "/root/modal_service")
+    from trainers.cnn_trainer import train
     return train(input_data, config)
 
 
@@ -138,7 +142,9 @@ def split_and_train_mlp(dataset_name, max_samples, split_config, train_config):
         **meta,
     }
 
-    from modal_service.trainers.mlp_trainer import train
+    import sys
+    sys.path.insert(0, "/root/modal_service")
+    from trainers.mlp_trainer import train
     return train(input_data, train_config)
 
 
@@ -182,7 +188,9 @@ def split_and_train_cnn(dataset_name, max_samples, split_config, train_config):
         **meta,
     }
 
-    from modal_service.trainers.cnn_trainer import train
+    import sys
+    sys.path.insert(0, "/root/modal_service")
+    from trainers.cnn_trainer import train
     return train(input_data, train_config)
 
 @app.function()

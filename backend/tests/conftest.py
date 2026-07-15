@@ -1,0 +1,114 @@
+import pytest
+import app.services.modal_service
+import app.pipeline.nodes.neural_network_node
+import app.pipeline.nodes.dataset_node
+
+
+def _zeros_3d(n, h, w):
+    return [[[0.0] * w for _ in range(h)] for _ in range(n)]
+
+
+def _zeros_4d(n, h, w, c):
+    return [[[[0.0] * c for _ in range(w)] for _ in range(h)] for _ in range(n)]
+
+
+def _split(X, y, test_size=0.2, random_state=42):
+    split_idx = max(1, int(len(X) * (1 - test_size)))
+    return X[:split_idx], X[split_idx:], y[:split_idx], y[split_idx:]
+
+
+@pytest.fixture(autouse=True)
+def mock_modal_service(monkeypatch):
+    def mock_get_mnist(max_samples=2000):
+        return {
+            "X": _zeros_3d(max_samples, 28, 28),
+            "y": [i % 10 for i in range(max_samples)],
+            "dataset_name": "mnist",
+            "task_type": "classification",
+            "data_format": "image",
+            "image_channels": 1,
+            "image_height": 28,
+            "image_width": 28,
+        }
+
+    def mock_get_fashion_mnist(max_samples=2000):
+        return {
+            "X": _zeros_3d(max_samples, 28, 28),
+            "y": [i % 10 for i in range(max_samples)],
+            "dataset_name": "fashion_mnist",
+            "task_type": "classification",
+            "data_format": "image",
+            "image_channels": 1,
+            "image_height": 28,
+            "image_width": 28,
+        }
+
+    def mock_get_cifar10(max_samples=2000):
+        return {
+            "X": _zeros_4d(max_samples, 32, 32, 3),
+            "y": [i % 10 for i in range(max_samples)],
+            "dataset_name": "cifar10",
+            "task_type": "classification",
+            "data_format": "image",
+            "image_channels": 3,
+            "image_height": 32,
+            "image_width": 32,
+        }
+
+    def mock_run_mlp(input_data, config):
+        from modal_service.trainers.mlp_trainer import train
+        return train(input_data, config)
+
+    def mock_run_cnn(input_data, config):
+        from modal_service.trainers.cnn_trainer import train
+        return train(input_data, config)
+
+    def _build_split_input(dataset_name, max_samples, split_config):
+        test_size = split_config.get("test_size", 0.2)
+        if dataset_name == "mnist":
+            X = _zeros_3d(max_samples, 28, 28)
+            meta = {"data_format": "image", "image_channels": 1, "image_height": 28, "image_width": 28}
+        elif dataset_name == "fashion_mnist":
+            X = _zeros_3d(max_samples, 28, 28)
+            meta = {"data_format": "image", "image_channels": 1, "image_height": 28, "image_width": 28}
+        elif dataset_name == "cifar10":
+            X = _zeros_4d(max_samples, 32, 32, 3)
+            meta = {"data_format": "image", "image_channels": 3, "image_height": 32, "image_width": 32}
+        else:
+            raise ValueError(f"Unknown dataset: {dataset_name}")
+        y = [i % 10 for i in range(max_samples)]
+        X_train, X_test, y_train, y_test = _split(X, y, test_size=test_size)
+        return {
+            "X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "task_type": "classification",
+            "dataset_name": dataset_name,
+            **meta
+        }
+
+    def mock_run_split_and_train_mlp(dataset_name, max_samples, split_config, train_config):
+        from modal_service.trainers.mlp_trainer import train
+        return train(_build_split_input(dataset_name, max_samples, split_config), train_config)
+
+    def mock_run_split_and_train_cnn(dataset_name, max_samples, split_config, train_config):
+        from modal_service.trainers.cnn_trainer import train
+        return train(_build_split_input(dataset_name, max_samples, split_config), train_config)
+
+    monkeypatch.setattr(app.services.modal_service, "get_mnist", mock_get_mnist)
+    monkeypatch.setattr(app.services.modal_service, "get_fashion_mnist", mock_get_fashion_mnist)
+    monkeypatch.setattr(app.services.modal_service, "get_cifar10", mock_get_cifar10)
+    monkeypatch.setattr(app.services.modal_service, "run_mlp", mock_run_mlp)
+    monkeypatch.setattr(app.services.modal_service, "run_cnn", mock_run_cnn)
+    monkeypatch.setattr(app.services.modal_service, "run_split_and_train_mlp", mock_run_split_and_train_mlp)
+    monkeypatch.setattr(app.services.modal_service, "run_split_and_train_cnn", mock_run_split_and_train_cnn)
+
+    monkeypatch.setattr(app.pipeline.nodes.neural_network_node, "run_mlp", mock_run_mlp)
+    monkeypatch.setattr(app.pipeline.nodes.neural_network_node, "run_cnn", mock_run_cnn)
+    monkeypatch.setattr(app.pipeline.nodes.neural_network_node, "run_split_and_train_mlp", mock_run_split_and_train_mlp)
+    monkeypatch.setattr(app.pipeline.nodes.neural_network_node, "run_split_and_train_cnn", mock_run_split_and_train_cnn)
+
+    monkeypatch.setattr(app.pipeline.nodes.dataset_node, "get_mnist", mock_get_mnist)
+    monkeypatch.setattr(app.pipeline.nodes.dataset_node, "get_fashion_mnist", mock_get_fashion_mnist)
+    monkeypatch.setattr(app.pipeline.nodes.dataset_node, "get_cifar10", mock_get_cifar10)
